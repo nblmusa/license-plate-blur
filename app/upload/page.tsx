@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings } from "lucide-react"
+import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings, Keyboard, History } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -14,6 +14,13 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export default function UploadPage() {
   const [image, setImage] = useState<string | null>(null)
@@ -46,6 +53,17 @@ export default function UploadPage() {
     solidColor: '#000000',
     pixelateSize: 10
   })
+  const [totalSize, setTotalSize] = useState(0)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+  const [processingHistory, setProcessingHistory] = useState<Array<{
+    id: string;
+    filename: string;
+    timestamp: string;
+    settings: typeof processingOptions;
+    logoSettings?: typeof logoSettings;
+    usedLogo: boolean;
+    detections: number;
+  }>>([])
 
   const processBatchQueue = useCallback(async () => {
     if (isBatchProcessing || batchQueue.length === 0) return
@@ -116,6 +134,17 @@ export default function UploadPage() {
           throw new Error('No masked image returned from API')
         }
 
+        // Add to history
+        setProcessingHistory(prev => [{
+          id: Math.random().toString(36).slice(2),
+          filename: item.file.name,
+          timestamp: new Date().toISOString(),
+          settings: { ...processingOptions },
+          logoSettings: useLogo ? { ...logoSettings } : undefined,
+          usedLogo: useLogo,
+          detections: data.metadata.licensePlatesDetected
+        }, ...prev.slice(0, 9)]) // Keep last 10 items
+
         // Update item as completed
         currentQueue = currentQueue.map((qItem, index) => 
           index === i ? { 
@@ -165,6 +194,10 @@ export default function UploadPage() {
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return
+
+    // Calculate total size
+    const newTotalSize = acceptedFiles.reduce((acc, file) => acc + file.size, 0)
+    setTotalSize(prevSize => prevSize + newTotalSize)
 
     // Set preview for the first image
     const file = acceptedFiles[0]
@@ -294,9 +327,207 @@ export default function UploadPage() {
     })
   }, [toast])
 
+  // Add keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if input or textarea is focused
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      // Existing shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+        e.preventDefault()
+        const uploadInput = document.querySelector('input[type="file"]') as HTMLInputElement
+        if (uploadInput) uploadInput.click()
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault()
+        if (batchQueue.some(item => item.status === 'completed')) {
+          downloadAll()
+        }
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+        e.preventDefault()
+        const logoInput = document.querySelector('input[accept="image/png,image/webp"]') as HTMLInputElement
+        if (logoInput) logoInput.click()
+      }
+
+      // New shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+        e.preventDefault()
+        setUseLogo(prev => !prev)
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        if (batchQueue.some(item => item.status === 'completed')) {
+          clearCompleted()
+        }
+      }
+
+      // Show shortcuts dialog
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        const shortcutsButton = document.querySelector('[title="Keyboard Shortcuts"]') as HTMLButtonElement
+        if (shortcutsButton) shortcutsButton.click()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [batchQueue, downloadAll, clearCompleted])
+
+  function ShortcutsDialog() {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="absolute top-4 right-4" title="Keyboard Shortcuts">
+            <Keyboard className="h-5 w-5" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Keyboard Shortcuts</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-4">
+                <div>
+                  <p className="font-medium mb-2">File Operations</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span>Upload Files</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘/Ctrl + U</kbd>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Upload Logo</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘/Ctrl + L</kbd>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Download All</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘/Ctrl + D</kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="font-medium mb-2">Navigation</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span>Toggle Logo</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘/Ctrl + T</kbd>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Clear Queue</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘/Ctrl + K</kbd>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Show Shortcuts</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs">?</kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Note: Some shortcuts may not work if a dialog or input field is focused.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  function HistoryDialog() {
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="absolute top-4 right-16" title="Processing History">
+            <History className="h-5 w-5" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Processing History</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {processingHistory.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                No processing history yet
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {processingHistory.map(item => (
+                  <div key={item.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">{item.filename}</h3>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Detection Settings</p>
+                        <ul className="mt-1 space-y-1">
+                          <li>Confidence: {item.settings.confidenceThreshold * 100}%</li>
+                          <li>Style: {item.settings.maskingStyle}</li>
+                          {item.settings.maskingStyle === 'blur' && (
+                            <li>Blur: {item.settings.blurStrength}</li>
+                          )}
+                        </ul>
+                      </div>
+                      {item.usedLogo && item.logoSettings && (
+                        <div>
+                          <p className="text-muted-foreground">Logo Settings</p>
+                          <ul className="mt-1 space-y-1">
+                            <li>Position: {item.logoSettings.position}</li>
+                            <li>Size: {item.logoSettings.size}%</li>
+                            <li>Opacity: {item.logoSettings.opacity}%</li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                      <Shield className="h-4 w-4" />
+                      <span>{item.detections} license plate{item.detections !== 1 ? 's' : ''} detected</span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => {
+                        setProcessingOptions(item.settings)
+                        if (item.logoSettings) {
+                          setLogoSettings(item.logoSettings)
+                          setUseLogo(true)
+                        }
+                        toast({
+                          title: "Settings restored",
+                          description: "Processing settings have been restored from history.",
+                        })
+                      }}
+                    >
+                      Restore These Settings
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto relative">
+        <HistoryDialog />
+        <ShortcutsDialog />
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Button variant="ghost" size="icon" asChild className="shrink-0">
@@ -328,14 +559,19 @@ export default function UploadPage() {
                   {...getRootProps()}
                   className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
                     ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
+                  title="Upload Files (Ctrl/Cmd + U)"
                 >
                   <input {...getInputProps()} />
-                  <div>
-                    <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className={`transition-transform duration-200 ${isDragActive ? 'scale-110' : ''}`}>
+                    <div className={`mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center
+                      ${isDragActive ? 'animate-bounce' : ''}`}>
                       <Upload className="h-6 w-6 text-primary" />
                     </div>
                     {isDragActive ? (
-                      <p className="text-primary font-medium">Drop the image here...</p>
+                      <div className="space-y-2">
+                        <p className="text-primary font-medium">Release to upload files</p>
+                        <p className="text-sm text-primary/80">Your files will be processed automatically</p>
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         <p className="font-medium">Drag & drop an image here</p>
@@ -697,6 +933,7 @@ export default function UploadPage() {
                     <Button 
                       onClick={downloadAll}
                       className="gap-2"
+                      title="Download All (Ctrl/Cmd + D)"
                     >
                       <Download className="h-4 w-4" />
                       Download All
@@ -870,6 +1107,24 @@ export default function UploadPage() {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+                <div className="p-6 border-t">
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mt-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary transition-all" 
+                          style={{ 
+                            width: `${Math.min((totalSize / MAX_FILE_SIZE) * 100, 100)}%`,
+                            backgroundColor: totalSize > MAX_FILE_SIZE ? 'var(--destructive)' : undefined
+                          }} 
+                        />
+                      </div>
+                    </div>
+                    <span>
+                      {(totalSize / (1024 * 1024)).toFixed(1)}MB / {MAX_FILE_SIZE / (1024 * 1024)}MB
+                    </span>
                   </div>
                 </div>
               </Card>
