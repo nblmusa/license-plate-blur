@@ -1,16 +1,19 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus } from "lucide-react"
+import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 
 export default function UploadPage() {
   const [image, setImage] = useState<string | null>(null)
@@ -19,245 +22,277 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [useLogo, setUseLogo] = useState(false)
+  const [logoSettings, setLogoSettings] = useState({
+    position: 'center',
+    size: 100,
+    opacity: 100
+  })
+  const [batchQueue, setBatchQueue] = useState<Array<{
+    id: string;
+    file: File;
+    status: 'pending' | 'processing' | 'completed' | 'error';
+    progress: number;
+    result?: string;
+    error?: string;
+  }>>([])
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false)
   const { toast } = useToast()
+  const [processingOptions, setProcessingOptions] = useState({
+    confidenceThreshold: 0.5,
+    borderColor: '#ffffff',
+    borderWidth: 2,
+    maskingStyle: 'blur' as 'blur' | 'solid' | 'pixelate',
+    blurStrength: 20,
+    solidColor: '#000000',
+    pixelateSize: 10
+  })
 
-  const processImage = useCallback(async (imageData: string) => {
-    if (!imageData) {
-      console.log('No image data provided')
-      return
-    }
+  const processBatchQueue = useCallback(async () => {
+    if (isBatchProcessing || batchQueue.length === 0) return
 
-    try {
-      setIsProcessing(true)
-      setProgress(0)
-      console.log('Starting image processing...')
-      
-      // Extract the base64 data and content type from the image string
-      const [header, base64Data] = imageData.split(',')
-      const contentType = header.split(';')[0].split(':')[1]
+    setIsBatchProcessing(true)
+    let currentQueue = [...batchQueue]
 
-      if (!base64Data) {
-        throw new Error('Invalid image data format')
-      }
-      
-      console.log('Making API call with content type:', contentType)
-
-      // Prepare request body with optional logo
-      const requestBody: any = {
-        image: base64Data,
-        filename: 'image.jpg',
-        contentType: contentType,
-      }
-
-      // Add logo if enabled and available
-      if (useLogo && logo) {
-        const [, logoBase64Data] = logo.split(',')
-        if (logoBase64Data) {
-          requestBody.logo = logoBase64Data
-        }
-      }
-      
-      // Make API call to process the image
-      const response = await fetch('/api/process-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      console.log('API Response status:', response.status)
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to process image')
-      }
-
-      setProgress(50)
-      const data = await response.json()
-      console.log('API Response data:', data)
-
-      if (!data.maskedImage) {
-        throw new Error('No masked image returned from API')
-      }
-
-      setProgress(100)
-      setIsProcessing(false)
-      setMaskedImage(data.maskedImage)
-      
-      toast({
-        title: "Success!",
-        description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully using ${data.metadata.maskType}.`,
-      })
-    } catch (error) {
-      console.error('Processing error:', error)
-      setIsProcessing(false)
-      setProgress(0)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to process image. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }, [image, logo, useLogo, toast])
-
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (file) {
-      console.log('File dropped:', file.name, file.type)
-      
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload an image smaller than 10MB.",
-          variant: "destructive",
-        })
-        return
-      }
+    for (let i = 0; i < currentQueue.length; i++) {
+      const item = currentQueue[i]
+      if (item.status !== 'pending') continue
 
       try {
+        // Update status to processing
+        currentQueue = currentQueue.map((qItem, index) => 
+          index === i ? { ...qItem, status: 'processing' as const } : qItem
+        )
+        setBatchQueue(currentQueue)
+
+        // Read file
         const imageData = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = (e) => {
-            console.log('FileReader onload triggered')
             const result = e.target?.result
             if (typeof result === 'string') {
               resolve(result)
             } else {
-              reject(new Error('Failed to read file as data URL'))
+              reject(new Error('Failed to read file'))
             }
           }
-          reader.onerror = (e) => {
-            console.error('FileReader error:', e)
-            reject(new Error('Failed to read file'))
-          }
-          reader.readAsDataURL(file)
+          reader.onerror = () => reject(new Error('Failed to read file'))
+          reader.readAsDataURL(item.file)
         })
 
-        console.log('Image data loaded, length:', imageData.length)
-        setImage(imageData)
-        setMaskedImage(null)
-        await processImage(imageData)
-      } catch (error) {
-        console.error('Error reading file:', error)
+        // Process image
+        const [header, base64Data] = imageData.split(',')
+        const contentType = header.split(';')[0].split(':')[1]
+
+        const requestBody: any = {
+          image: base64Data,
+          filename: item.file.name,
+          contentType: contentType,
+          processingOptions,
+        }
+
+        if (useLogo && logo) {
+          const [, logoBase64Data] = logo.split(',')
+          if (logoBase64Data) {
+            requestBody.logo = logoBase64Data
+            requestBody.logoSettings = logoSettings
+          }
+        }
+
+        const response = await fetch('/api/process-image', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to process image')
+        }
+
+        const data = await response.json()
+        if (!data.maskedImage) {
+          throw new Error('No masked image returned from API')
+        }
+
+        // Update item as completed
+        currentQueue = currentQueue.map((qItem, index) => 
+          index === i ? { 
+            ...qItem, 
+            status: 'completed' as const, 
+            progress: 100,
+            result: data.maskedImage 
+          } : qItem
+        )
+        setBatchQueue(currentQueue)
+
+        // Set the preview image for the first processed image
+        if (i === 0) {
+          setMaskedImage(data.maskedImage)
+        }
+
         toast({
-          title: "Error",
-          description: "Failed to read the image file.",
+          title: `Processed ${item.file.name}`,
+          description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully.`,
+        })
+      } catch (error) {
+        // Update item as error
+        currentQueue = currentQueue.map((qItem, index) => 
+          index === i ? { 
+            ...qItem, 
+            status: 'error' as const,
+            error: error instanceof Error ? error.message : 'Failed to process image'
+          } : qItem
+        )
+        setBatchQueue(currentQueue)
+
+        toast({
+          title: `Error processing ${item.file.name}`,
+          description: error instanceof Error ? error.message : "Failed to process image",
           variant: "destructive",
         })
       }
     }
-  }, [processImage, toast])
+
+    setIsBatchProcessing(false)
+  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast])
+
+  // Start processing when queue changes
+  useEffect(() => {
+    processBatchQueue()
+  }, [batchQueue, processBatchQueue])
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return
+
+    // Set preview for the first image
+    const file = acceptedFiles[0]
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result
+      if (typeof result === 'string') {
+        setImage(result)
+      }
+    }
+    reader.readAsDataURL(file)
+
+    // Add files to batch queue
+    const newItems = acceptedFiles.map(file => ({
+      id: Math.random().toString(36).slice(2),
+      file,
+      status: 'pending' as const,
+      progress: 0
+    }))
+    
+    setBatchQueue(prev => [...prev, ...newItems])
+
+    toast({
+      title: "Files added to queue",
+      description: `Added ${acceptedFiles.length} file${acceptedFiles.length > 1 ? 's' : ''} to processing queue.`,
+    })
+  }, [toast])
 
   const onLogoDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (file) {
-      console.log('Logo dropped:', file.name, file.type)
-      
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit for logos
-        toast({
-          title: "File too large",
-          description: "Please upload a logo smaller than 2MB.",
-          variant: "destructive",
-        })
-        return
-      }
+    if (acceptedFiles.length === 0) return
 
-      try {
-        const logoData = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            const result = e.target?.result
-            if (typeof result === 'string') {
-              resolve(result)
-            } else {
-              reject(new Error('Failed to read file as data URL'))
-            }
+    const file = acceptedFiles[0] // Only take the first file
+
+    // Validate file type
+    if (!['image/png', 'image/webp'].includes(file.type)) {
+      toast({
+        title: "Error",
+        description: "Logo must be PNG or WebP format with transparency",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate file size
+    if (file.size > 2 * 1024 * 1024) { // 2MB limit
+      toast({
+        title: "Error",
+        description: "Logo file size must be less than 2MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result
+      if (typeof result === 'string') {
+        // Create an image element to check dimensions
+        const img = document.createElement('img')
+        img.onload = () => {
+          setLogo(result)
+          setUseLogo(true)
+          toast({
+            title: "Logo uploaded successfully",
+            description: "Your logo has been added and will be used for masking.",
+          })
+          if (batchQueue.length > 0) {
+            processBatchQueue()
           }
-          reader.onerror = (e) => {
-            console.error('FileReader error:', e)
-            reject(new Error('Failed to read file'))
-          }
-          reader.readAsDataURL(file)
-        })
-
-        setLogo(logoData)
-        setUseLogo(true)
-        
-        toast({
-          title: "Logo uploaded",
-          description: "Logo will be used for masking license plates.",
-        })
-
-        // If there's already an image, reprocess it with the new logo
-        if (image) {
-          await processImage(image)
         }
-      } catch (error) {
-        console.error('Error reading logo file:', error)
-        toast({
-          title: "Error",
-          description: "Failed to read the logo file.",
-          variant: "destructive",
-        })
+        img.src = result
       }
     }
-  }, [image, processImage, toast])
+    reader.onerror = () => {
+      toast({
+        title: "Error",
+        description: "Failed to read logo file",
+        variant: "destructive",
+      })
+    }
+    reader.readAsDataURL(file)
+  }, [toast, processBatchQueue, batchQueue.length])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
     },
-    maxFiles: 1,
-    multiple: false
+    multiple: true
   })
 
   const { getRootProps: getLogoRootProps, getInputProps: getLogoInputProps, isDragActive: isLogoDragActive } = useDropzone({
     onDrop: onLogoDrop,
     accept: {
-      'image/*': ['.png', '.webp'] // Prefer formats that support transparency
+      'image/png': ['.png'],
+      'image/webp': ['.webp']
     },
-    maxFiles: 1,
-    multiple: false
+    multiple: false,
+    maxSize: 2 * 1024 * 1024 // 2MB
   })
 
-  const handleTryAnother = () => {
-    setImage(null)
-    setMaskedImage(null)
-    setProgress(0)
-  }
-
-  const handleDownload = () => {
-    if (maskedImage) {
+  const downloadAll = useCallback(() => {
+    const completedItems = batchQueue.filter(item => item.status === 'completed' && item.result)
+    
+    completedItems.forEach(item => {
       const link = document.createElement('a')
-      link.href = maskedImage
-      link.download = 'masked-image.png'
+      link.href = item.result!
+      link.download = `masked-${item.file.name}`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      
+    })
+
+    if (completedItems.length > 0) {
       toast({
         title: "Download started",
-        description: "Your masked image is being downloaded.",
+        description: `Downloading ${completedItems.length} processed image${completedItems.length > 1 ? 's' : ''}.`,
       })
     }
-  }
+  }, [batchQueue, toast])
 
-  const removeLogo = () => {
-    setLogo(null)
-    setUseLogo(false)
-    
-    // If there's an image, reprocess it without the logo
-    if (image) {
-      processImage(image)
-    }
-
+  const clearCompleted = useCallback(() => {
+    setBatchQueue(prev => prev.filter(item => item.status !== 'completed'))
     toast({
-      title: "Logo removed",
-      description: "Reverting to blur effect for masking.",
+      title: "Queue cleared",
+      description: "Completed items removed from queue.",
     })
-  }
+  }, [toast])
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -328,7 +363,7 @@ export default function UploadPage() {
                       checked={useLogo}
                       onCheckedChange={(checked) => {
                         setUseLogo(checked)
-                        if (image) processImage(image)
+                        if (image) processBatchQueue()
                       }}
                       disabled={!logo}
                     />
@@ -338,23 +373,88 @@ export default function UploadPage() {
               </div>
               <div className="p-6">
                 {logo ? (
-                  <div className="relative">
-                    <div className="relative aspect-video bg-muted/50 rounded-lg overflow-hidden">
-                      <Image
-                        src={logo}
-                        alt="Logo"
-                        fill
-                        className="object-contain p-4"
-                      />
+                  <div className="space-y-6">
+                    <div className="relative">
+                      <div className="relative aspect-video bg-muted/50 rounded-lg overflow-hidden">
+                        <Image
+                          src={logo}
+                          alt="Logo"
+                          fill
+                          className="object-contain p-4"
+                        />
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute -top-2 -right-2"
+                        onClick={() => {
+                          setLogo(null)
+                          setUseLogo(false)
+                          processBatchQueue()
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute -top-2 -right-2"
-                      onClick={removeLogo}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    
+                    {/* Logo Customization Controls */}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Position</Label>
+                        <Select
+                          value={logoSettings.position}
+                          onValueChange={(value) => {
+                            setLogoSettings(prev => ({ ...prev, position: value }))
+                            processBatchQueue()
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="center">Center</SelectItem>
+                            <SelectItem value="top-left">Top Left</SelectItem>
+                            <SelectItem value="top-right">Top Right</SelectItem>
+                            <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                            <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Size</Label>
+                          <span className="text-sm text-muted-foreground">{logoSettings.size}%</span>
+                        </div>
+                        <Slider
+                          value={[logoSettings.size]}
+                          onValueChange={(value) => {
+                            setLogoSettings(prev => ({ ...prev, size: value[0] }))
+                            processBatchQueue()
+                          }}
+                          min={10}
+                          max={200}
+                          step={5}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Opacity</Label>
+                          <span className="text-sm text-muted-foreground">{logoSettings.opacity}%</span>
+                        </div>
+                        <Slider
+                          value={[logoSettings.opacity]}
+                          onValueChange={(value) => {
+                            setLogoSettings(prev => ({ ...prev, opacity: value[0] }))
+                            processBatchQueue()
+                          }}
+                          min={10}
+                          max={100}
+                          step={5}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div
@@ -374,6 +474,172 @@ export default function UploadPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            </Card>
+
+            {/* Processing Options */}
+            <Card className="overflow-hidden">
+              <div className="p-6 border-b bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Processing Options</h2>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="space-y-6">
+                  {/* Confidence Threshold */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Detection Confidence</Label>
+                      <span className="text-sm text-muted-foreground">{processingOptions.confidenceThreshold * 100}%</span>
+                    </div>
+                    <Slider
+                      value={[processingOptions.confidenceThreshold * 100]}
+                      onValueChange={(value) => {
+                        setProcessingOptions(prev => ({ ...prev, confidenceThreshold: value[0] / 100 }))
+                        processBatchQueue()
+                      }}
+                      min={10}
+                      max={100}
+                      step={5}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Higher values mean more accurate but fewer detections
+                    </p>
+                  </div>
+
+                  {/* Masking Style */}
+                  <div className="space-y-2">
+                    <Label>Masking Style</Label>
+                    <Select
+                      value={processingOptions.maskingStyle}
+                      onValueChange={(value: 'blur' | 'solid' | 'pixelate') => {
+                        setProcessingOptions(prev => ({ ...prev, maskingStyle: value }))
+                        processBatchQueue()
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select masking style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="blur">Gaussian Blur</SelectItem>
+                        <SelectItem value="solid">Solid Color</SelectItem>
+                        <SelectItem value="pixelate">Pixelate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Style-specific options */}
+                  {processingOptions.maskingStyle === 'blur' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Blur Strength</Label>
+                        <span className="text-sm text-muted-foreground">{processingOptions.blurStrength}</span>
+                      </div>
+                      <Slider
+                        value={[processingOptions.blurStrength]}
+                        onValueChange={(value) => {
+                          setProcessingOptions(prev => ({ ...prev, blurStrength: value[0] }))
+                          processBatchQueue()
+                        }}
+                        min={5}
+                        max={50}
+                        step={5}
+                      />
+                    </div>
+                  )}
+
+                  {processingOptions.maskingStyle === 'solid' && (
+                    <div className="space-y-2">
+                      <Label>Solid Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="color"
+                          value={processingOptions.solidColor}
+                          onChange={(e) => {
+                            setProcessingOptions(prev => ({ ...prev, solidColor: e.target.value }))
+                            processBatchQueue()
+                          }}
+                          className="w-20 p-1 h-8"
+                        />
+                        <Input
+                          type="text"
+                          value={processingOptions.solidColor}
+                          onChange={(e) => {
+                            setProcessingOptions(prev => ({ ...prev, solidColor: e.target.value }))
+                            processBatchQueue()
+                          }}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {processingOptions.maskingStyle === 'pixelate' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Pixel Size</Label>
+                        <span className="text-sm text-muted-foreground">{processingOptions.pixelateSize}px</span>
+                      </div>
+                      <Slider
+                        value={[processingOptions.pixelateSize]}
+                        onValueChange={(value) => {
+                          setProcessingOptions(prev => ({ ...prev, pixelateSize: value[0] }))
+                          processBatchQueue()
+                        }}
+                        min={5}
+                        max={30}
+                        step={1}
+                      />
+                    </div>
+                  )}
+
+                  {/* Border Options */}
+                  <div className="space-y-4">
+                    <Label>Border Style</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Color</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="color"
+                            value={processingOptions.borderColor}
+                            onChange={(e) => {
+                              setProcessingOptions(prev => ({ ...prev, borderColor: e.target.value }))
+                              processBatchQueue()
+                            }}
+                            className="w-20 p-1 h-8"
+                          />
+                          <Input
+                            type="text"
+                            value={processingOptions.borderColor}
+                            onChange={(e) => {
+                              setProcessingOptions(prev => ({ ...prev, borderColor: e.target.value }))
+                              processBatchQueue()
+                            }}
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Width</Label>
+                          <span className="text-sm text-muted-foreground">{processingOptions.borderWidth}px</span>
+                        </div>
+                        <Slider
+                          value={[processingOptions.borderWidth]}
+                          onValueChange={(value) => {
+                            setProcessingOptions(prev => ({ ...prev, borderWidth: value[0] }))
+                            processBatchQueue()
+                          }}
+                          min={0}
+                          max={10}
+                          step={1}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </Card>
 
@@ -421,16 +687,19 @@ export default function UploadPage() {
                   <div className="flex justify-end gap-3">
                     <Button 
                       variant="outline" 
-                      onClick={handleTryAnother}
+                      onClick={() => {
+                        setMaskedImage(null)
+                        processBatchQueue()
+                      }}
                     >
                       Try Another
                     </Button>
                     <Button 
-                      onClick={handleDownload}
+                      onClick={downloadAll}
                       className="gap-2"
                     >
                       <Download className="h-4 w-4" />
-                      Download
+                      Download All
                     </Button>
                   </div>
                 </div>
@@ -445,13 +714,13 @@ export default function UploadPage() {
                 </div>
                 <div className="p-12">
                   <div className="text-center space-y-6">
-                    {isProcessing ? (
+                    {isBatchProcessing ? (
                       <>
                         <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                           <Loader2 className="h-8 w-8 text-primary animate-spin" />
                         </div>
                         <div className="space-y-4">
-                          <p className="font-medium">Processing your image...</p>
+                          <p className="font-medium">Processing your images...</p>
                           <div className="w-full max-w-xs mx-auto">
                             <Progress value={progress} className="h-2" />
                           </div>
@@ -510,6 +779,101 @@ export default function UploadPage() {
                 </p>
               </div>
             </Card>
+
+            {/* Batch Processing Queue */}
+            {batchQueue.length > 0 && (
+              <Card className="overflow-hidden">
+                <div className="p-6 border-b bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Upload className="h-5 w-5 text-primary" />
+                      <h2 className="text-lg font-semibold">Processing Queue</h2>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearCompleted}
+                        disabled={!batchQueue.some(item => item.status === 'completed')}
+                      >
+                        Clear Completed
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={downloadAll}
+                        disabled={!batchQueue.some(item => item.status === 'completed')}
+                      >
+                        Download All
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {batchQueue.map(item => (
+                      <div key={item.id} className="flex items-center gap-4">
+                        <div 
+                          className={`flex-1 space-y-2 ${item.status === 'completed' ? 'cursor-pointer hover:opacity-90' : ''}`}
+                          onClick={() => {
+                            if (item.status === 'completed' && item.result) {
+                              setMaskedImage(item.result)
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-4">
+                            {item.status === 'completed' && item.result && (
+                              <div className="relative w-12 h-12 rounded bg-muted/50 overflow-hidden shrink-0">
+                                <Image
+                                  src={item.result}
+                                  alt={item.file.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium">{item.file.name}</p>
+                                <span className="text-sm text-muted-foreground">
+                                  {item.status === 'completed' && '✓ Done'}
+                                  {item.status === 'processing' && '⟳ Processing'}
+                                  {item.status === 'error' && '✕ Error'}
+                                  {item.status === 'pending' && '⋯ Pending'}
+                                </span>
+                              </div>
+                              <Progress value={item.progress} className="h-1" />
+                              {item.error && (
+                                <p className="text-sm text-destructive">{item.error}</p>
+                              )}
+                            </div>
+                          </div>
+                          {item.status === 'completed' && (
+                            <p className="text-xs text-muted-foreground">Click to view in preview</p>
+                          )}
+                        </div>
+                        {item.status === 'completed' && item.result && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="shrink-0"
+                            onClick={() => {
+                              const link = document.createElement('a')
+                              link.href = item.result!
+                              link.download = `masked-${item.file.name}`
+                              document.body.appendChild(link)
+                              link.click()
+                              document.body.removeChild(link)
+                            }}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
         </div>
       </div>

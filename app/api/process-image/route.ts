@@ -26,7 +26,7 @@ async function loadModel() {
   }
 }
 
-async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buffer) {
+async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buffer, logoSettings?: any) {
   try {
     tf.engine().startScope()
 
@@ -47,8 +47,7 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buff
           .trim() // Remove any excess transparent space
           .toBuffer()
       } catch (error) {
-        console.error('Error processing logo:', error)
-        // If logo processing fails, fall back to blur
+        console.error('Error preprocessing logo:', error)
         processedLogo = undefined
       }
     }
@@ -168,22 +167,83 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buff
         const boxHeight = y2 - y1
 
         if (processedLogo) {
-          // Resize logo to fit the license plate area while maintaining aspect ratio
-          const resizedLogo = await sharp(processedLogo)
-            .resize(boxWidth, boxHeight, {
-              fit: 'contain',
-              background: { r: 0, g: 0, b: 0, alpha: 0 }
+          try {
+            // Get logo dimensions before resizing
+            const logoMetadata = await sharp(processedLogo).metadata()
+            const logoWidth = Math.round(boxWidth * (logoSettings?.size || 100) / 100)
+            const logoHeight = Math.round(boxHeight * (logoSettings?.size || 100) / 100)
+            
+            console.log('Processing license plate:', {
+              plateSize: { width: boxWidth, height: boxHeight },
+              logoSize: { width: logoWidth, height: logoHeight },
+              position: logoSettings?.position || 'center',
+              opacity: logoSettings?.opacity || 100
             })
+
+            // Resize logo to fit the license plate area while maintaining aspect ratio
+            const resizedLogo = await sharp(processedLogo)
+              .resize(logoWidth, logoHeight, {
+                fit: 'contain',
+                background: { r: 0, g: 0, b: 0, alpha: 0 }
+              })
+              .png()
+              .toBuffer()
+
+            // Calculate position based on logoSettings
+            let left = x1
+            let top = y1
+            
+            switch (logoSettings?.position) {
+              case 'top-left':
+                break
+              case 'top-right':
+                left = x2 - logoWidth
+                break
+              case 'bottom-left':
+                top = y2 - logoHeight
+                break
+              case 'bottom-right':
+                left = x2 - logoWidth
+                top = y2 - logoHeight
+                break
+              case 'center':
+              default:
+                left = x1 + Math.round((boxWidth - logoWidth) / 2)
+                top = y1 + Math.round((boxHeight - logoHeight) / 2)
+                break
+            }
+
+            // Create a white background with the logo composited on top
+            const logoWithBackground = await sharp({
+              create: {
+                width: logoWidth,
+                height: logoHeight,
+                channels: 4,
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+              }
+            })
+            .png()
+            .composite([{
+              input: resizedLogo,
+              blend: 'over' as Blend
+            }])
+            .png()
             .toBuffer()
 
-          return [{
-            input: resizedLogo,
-            top: y1,
-            left: x1,
-            blend: 'over' as Blend
-          }]
-        } else {
-          // Fall back to blur if no logo or logo processing failed
+            // Return the composite operation
+            return [{
+              input: logoWithBackground,
+              top: Math.round(top),
+              left: Math.round(left)
+            }]
+          } catch (error) {
+            console.error('Error applying logo to license plate:', error)
+            return await fallbackToBlur()
+          }
+        }
+
+        // Fallback to blur function
+        async function fallbackToBlur() {
           const extractedRegion = await sharp(imageBuffer)
             .extract({
               left: x1,
@@ -200,6 +260,9 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buff
             left: x1
           }]
         }
+
+        // If no logo, use blur
+        return await fallbackToBlur()
       })
     )
 
@@ -208,6 +271,11 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buff
       .composite(compositeOperations.flat())
       .toFormat(format || 'jpeg')
       .toBuffer()
+
+    console.log('Image processing complete:', {
+      detectedPlates: scores_data.length,
+      maskType: processedLogo ? 'logo' : 'blur'
+    })
 
     tf.engine().endScope()
     return {
@@ -240,30 +308,25 @@ function processDetections(predictions: number[][], threshold: number) {
 
 export async function POST(request: Request) {
   try {
-    console.log('Processing image request...')
-    
     // Get the request body
     const body = await request.json()
-    const { image, logo, filename, contentType } = body
+    const { image, logo, filename, contentType, logoSettings } = body
 
     if (!image) {
-      console.log('Error: No image data provided')
       return NextResponse.json(
         { error: 'No image data provided' },
         { status: 400 }
       )
     }
 
-    console.log('Received image data:', {
-      filename,
-      contentType,
-      imageSize: image.length,
-      hasLogo: !!logo
+    console.log('Processing request:', {
+      hasImage: !!image,
+      hasLogo: !!logo,
+      settings: logoSettings
     })
 
     // Validate the image data
     if (!image.match(/^[A-Za-z0-9+/=]+$/)) {
-      console.log('Error: Invalid image data format')
       return NextResponse.json(
         { error: 'Invalid image data format' },
         { status: 400 }
@@ -279,15 +342,11 @@ export async function POST(request: Request) {
         logoBuffer = Buffer.from(logo, 'base64')
       }
 
-      console.log('Converted to buffer, size:', buffer.length)
-
       // Process the image using the TensorFlow model
-      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer, logoBuffer)
+      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer, logoBuffer, logoSettings)
       
       // Convert processed image back to base64
       const processedImageBase64 = `data:${contentType};base64,${processedBuffer.toString('base64')}`
-
-      console.log('Processing complete, detected plates:', detections)
 
       // Return the processed image
       return NextResponse.json({
@@ -305,7 +364,7 @@ export async function POST(request: Request) {
       })
 
     } catch (error) {
-      console.error('Error processing image buffer:', error)
+      console.error('Error processing image:', error)
       return NextResponse.json(
         { error: 'Failed to process image data' },
         { status: 500 }
@@ -313,7 +372,7 @@ export async function POST(request: Request) {
     }
 
   } catch (error) {
-    console.error('Error in process-image API:', error)
+    console.error('Error in API route:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
