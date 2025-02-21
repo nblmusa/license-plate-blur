@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import * as tf from '@tensorflow/tfjs-node'
-import sharp from 'sharp'
+import sharp, { Blend } from 'sharp'
 import path from 'path'
 import { promises as fs } from 'fs'
 
@@ -26,7 +26,7 @@ async function loadModel() {
   }
 }
 
-async function detectAndMaskLicensePlates(imageBuffer: Buffer) {
+async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buffer) {
   try {
     tf.engine().startScope()
 
@@ -38,6 +38,20 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer) {
       height: originalHeight = 640, 
       format 
     } = metadata
+
+    // If logo is provided, preprocess it
+    let processedLogo: Buffer | undefined
+    if (logoBuffer) {
+      try {
+        processedLogo = await sharp(logoBuffer)
+          .trim() // Remove any excess transparent space
+          .toBuffer()
+      } catch (error) {
+        console.error('Error processing logo:', error)
+        // If logo processing fails, fall back to blur
+        processedLogo = undefined
+      }
+    }
 
     // Calculate aspect ratio to handle padding offset
     const aspectRatio = originalWidth / originalHeight
@@ -153,26 +167,43 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer) {
         const boxWidth = x2 - x1
         const boxHeight = y2 - y1
 
-        // Extract and blur the license plate region
-        const extractedRegion = await sharp(imageBuffer)
-          .extract({
-            left: x1,
-            top: y1,
-            width: boxWidth,
-            height: boxHeight
-          })
-          .blur(20) // Adjust blur strength as needed
-          .toBuffer()
+        if (processedLogo) {
+          // Resize logo to fit the license plate area while maintaining aspect ratio
+          const resizedLogo = await sharp(processedLogo)
+            .resize(boxWidth, boxHeight, {
+              fit: 'contain',
+              background: { r: 0, g: 0, b: 0, alpha: 0 }
+            })
+            .toBuffer()
 
-        return [{
-          input: extractedRegion,
-          top: y1,
-          left: x1
-        }]
+          return [{
+            input: resizedLogo,
+            top: y1,
+            left: x1,
+            blend: 'over' as Blend
+          }]
+        } else {
+          // Fall back to blur if no logo or logo processing failed
+          const extractedRegion = await sharp(imageBuffer)
+            .extract({
+              left: x1,
+              top: y1,
+              width: boxWidth,
+              height: boxHeight
+            })
+            .blur(20)
+            .toBuffer()
+
+          return [{
+            input: extractedRegion,
+            top: y1,
+            left: x1
+          }]
+        }
       })
     )
 
-    // Apply blurred regions to the original image
+    // Apply masked regions to the original image
     const maskedImage = await sharp(imageBuffer)
       .composite(compositeOperations.flat())
       .toFormat(format || 'jpeg')
@@ -213,7 +244,7 @@ export async function POST(request: Request) {
     
     // Get the request body
     const body = await request.json()
-    const { image, filename, contentType } = body
+    const { image, logo, filename, contentType } = body
 
     if (!image) {
       console.log('Error: No image data provided')
@@ -227,6 +258,7 @@ export async function POST(request: Request) {
       filename,
       contentType,
       imageSize: image.length,
+      hasLogo: !!logo
     })
 
     // Validate the image data
@@ -241,10 +273,16 @@ export async function POST(request: Request) {
     try {
       // Convert base64 to buffer
       const buffer = Buffer.from(image, 'base64')
+      let logoBuffer: Buffer | undefined
+      
+      if (logo && typeof logo === 'string' && logo.match(/^[A-Za-z0-9+/=]+$/)) {
+        logoBuffer = Buffer.from(logo, 'base64')
+      }
+
       console.log('Converted to buffer, size:', buffer.length)
 
       // Process the image using the TensorFlow model
-      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer)
+      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer, logoBuffer)
       
       // Convert processed image back to base64
       const processedImageBase64 = `data:${contentType};base64,${processedBuffer.toString('base64')}`
@@ -262,6 +300,7 @@ export async function POST(request: Request) {
           licensePlatesDetected: detections,
           originalSize: buffer.length,
           processedSize: processedBuffer.length,
+          maskType: logoBuffer ? 'logo' : 'blur'
         }
       })
 

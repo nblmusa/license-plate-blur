@@ -4,22 +4,26 @@ import { useCallback, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield } from "lucide-react"
+import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 export default function UploadPage() {
   const [image, setImage] = useState<string | null>(null)
+  const [logo, setLogo] = useState<string | null>(null)
   const [maskedImage, setMaskedImage] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [useLogo, setUseLogo] = useState(false)
   const { toast } = useToast()
 
   const processImage = useCallback(async (imageData: string) => {
     if (!imageData) {
-      console.log('No image data available')
+      console.log('No image data provided')
       return
     }
 
@@ -37,6 +41,21 @@ export default function UploadPage() {
       }
       
       console.log('Making API call with content type:', contentType)
+
+      // Prepare request body with optional logo
+      const requestBody: any = {
+        image: base64Data,
+        filename: 'image.jpg',
+        contentType: contentType,
+      }
+
+      // Add logo if enabled and available
+      if (useLogo && logo) {
+        const [, logoBase64Data] = logo.split(',')
+        if (logoBase64Data) {
+          requestBody.logo = logoBase64Data
+        }
+      }
       
       // Make API call to process the image
       const response = await fetch('/api/process-image', {
@@ -44,11 +63,7 @@ export default function UploadPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          image: base64Data,
-          filename: 'image.jpg',
-          contentType: contentType,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       console.log('API Response status:', response.status)
@@ -72,7 +87,7 @@ export default function UploadPage() {
       
       toast({
         title: "Success!",
-        description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully.`,
+        description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully using ${data.metadata.maskType}.`,
       })
     } catch (error) {
       console.error('Processing error:', error)
@@ -84,7 +99,7 @@ export default function UploadPage() {
         variant: "destructive",
       })
     }
-  }, [image, toast])
+  }, [image, logo, useLogo, toast])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -134,10 +149,74 @@ export default function UploadPage() {
     }
   }, [processImage, toast])
 
+  const onLogoDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0]
+    if (file) {
+      console.log('Logo dropped:', file.name, file.type)
+      
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit for logos
+        toast({
+          title: "File too large",
+          description: "Please upload a logo smaller than 2MB.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      try {
+        const logoData = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            const result = e.target?.result
+            if (typeof result === 'string') {
+              resolve(result)
+            } else {
+              reject(new Error('Failed to read file as data URL'))
+            }
+          }
+          reader.onerror = (e) => {
+            console.error('FileReader error:', e)
+            reject(new Error('Failed to read file'))
+          }
+          reader.readAsDataURL(file)
+        })
+
+        setLogo(logoData)
+        setUseLogo(true)
+        
+        toast({
+          title: "Logo uploaded",
+          description: "Logo will be used for masking license plates.",
+        })
+
+        // If there's already an image, reprocess it with the new logo
+        if (image) {
+          await processImage(image)
+        }
+      } catch (error) {
+        console.error('Error reading logo file:', error)
+        toast({
+          title: "Error",
+          description: "Failed to read the logo file.",
+          variant: "destructive",
+        })
+      }
+    }
+  }, [image, processImage, toast])
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp']
+    },
+    maxFiles: 1,
+    multiple: false
+  })
+
+  const { getRootProps: getLogoRootProps, getInputProps: getLogoInputProps, isDragActive: isLogoDragActive } = useDropzone({
+    onDrop: onLogoDrop,
+    accept: {
+      'image/*': ['.png', '.webp'] // Prefer formats that support transparency
     },
     maxFiles: 1,
     multiple: false
@@ -163,6 +242,21 @@ export default function UploadPage() {
         description: "Your masked image is being downloaded.",
       })
     }
+  }
+
+  const removeLogo = () => {
+    setLogo(null)
+    setUseLogo(false)
+    
+    // If there's an image, reprocess it without the logo
+    if (image) {
+      processImage(image)
+    }
+
+    toast({
+      title: "Logo removed",
+      description: "Reverting to blur effect for masking.",
+    })
   }
 
   return (
@@ -218,6 +312,68 @@ export default function UploadPage() {
                     )}
                   </div>
                 </div>
+              </div>
+            </Card>
+
+            {/* Logo Upload Section */}
+            <Card className="overflow-hidden">
+              <div className="p-6 border-b bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ImagePlus className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Custom Logo (Optional)</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={useLogo}
+                      onCheckedChange={(checked) => {
+                        setUseLogo(checked)
+                        if (image) processImage(image)
+                      }}
+                      disabled={!logo}
+                    />
+                    <Label>Use Logo</Label>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6">
+                {logo ? (
+                  <div className="relative">
+                    <div className="relative aspect-video bg-muted/50 rounded-lg overflow-hidden">
+                      <Image
+                        src={logo}
+                        alt="Logo"
+                        fill
+                        className="object-contain p-4"
+                      />
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2"
+                      onClick={removeLogo}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    {...getLogoRootProps()}
+                    className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
+                      ${isLogoDragActive ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
+                  >
+                    <input {...getLogoInputProps()} />
+                    <div className="space-y-2">
+                      <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <ImagePlus className="h-5 w-5 text-primary" />
+                      </div>
+                      <p className="font-medium text-sm">Add a custom logo</p>
+                      <p className="text-xs text-muted-foreground">
+                        PNG or WebP with transparency • Max size: 2MB
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 
