@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
+  const [requires2FA, setRequires2FA] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [tempSession, setTempSession] = useState<any>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -32,9 +35,53 @@ export default function LoginPage() {
         throw new Error(data.error || 'Failed to sign in')
       }
 
+      if (data.requires2FA) {
+        setRequires2FA(true)
+        setTempSession(data.tempSession)
+      } else {
+        toast({
+          title: "Success",
+          description: "You have been signed in successfully.",
+        })
+        router.push('/dashboard')
+        router.refresh()
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handle2FAVerification(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('/auth/verify-2fa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          code: verificationCode,
+          session: tempSession
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify 2FA')
+      }
+
       toast({
         title: "Success",
-        description: "You have been signed in successfully.",
+        description: "Two-factor authentication verified successfully.",
       })
 
       router.push('/dashboard')
@@ -42,7 +89,7 @@ export default function LoginPage() {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Something went wrong",
+        description: error instanceof Error ? error.message : "Failed to verify 2FA",
         variant: "destructive",
       })
     } finally {
@@ -61,42 +108,66 @@ export default function LoginPage() {
               </div>
               <h1 className="text-2xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 dark:from-blue-400 dark:via-blue-300 dark:to-blue-200">Welcome back</h1>
               <p className="text-sm text-muted-foreground text-center">
-                Enter your email to sign in to your account
+                {requires2FA ? "Enter your verification code" : "Enter your email to sign in to your account"}
               </p>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-blue-700 dark:text-blue-300">Email</Label>
-                <Input 
-                  id="email"
-                  name="email" 
-                  type="email" 
-                  placeholder="m@example.com" 
-                  required 
-                  className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+            {!requires2FA ? (
+              <form onSubmit={onSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-blue-700 dark:text-blue-300">Email</Label>
+                  <Input 
+                    id="email"
+                    name="email" 
+                    type="email" 
+                    placeholder="m@example.com" 
+                    required 
+                    className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-blue-700 dark:text-blue-300">Password</Label>
+                  <Input 
+                    id="password"
+                    name="password" 
+                    type="password" 
+                    required 
+                    className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
                   disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-blue-700 dark:text-blue-300">Password</Label>
-                <Input 
-                  id="password"
-                  name="password" 
-                  type="password" 
-                  required 
-                  className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
-                  disabled={isLoading}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
+                >
+                  {isLoading ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handle2FAVerification} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="verificationCode" className="text-blue-700 dark:text-blue-300">Verification Code</Label>
+                  <Input 
+                    id="verificationCode"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                    className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                  disabled={isLoading || verificationCode.length !== 6}
+                >
+                  {isLoading ? "Verifying..." : "Verify"}
+                </Button>
+              </form>
+            )}
 
             <div className="mt-6 text-center text-sm">
               <p className="text-muted-foreground">

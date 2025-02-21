@@ -34,6 +34,29 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { CustomAlertDialog } from "@/components/alert-dialog"
 import { useDashboard } from "@/hooks/use-dashboard"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+
+interface Profile {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+}
+
+interface Preferences {
+  emailNotifications: {
+    newLogin: boolean
+    usageAlerts: boolean
+    newsletter: boolean
+    marketing: boolean
+  }
+  autoProcessing: {
+    autoMask: boolean
+    autoDownload: boolean
+    saveOriginal: boolean
+    highQuality: boolean
+  }
+}
 
 export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -50,27 +73,52 @@ export default function SettingsPage() {
     highQuality: false
   })
   const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<Profile>({
     firstName: '',
     lastName: '',
     email: '',
     phone: ''
   })
+  const [preferences, setPreferences] = useState<Preferences>({
+    emailNotifications: {
+      newLogin: true,
+      usageAlerts: true,
+      newsletter: false,
+      marketing: false
+    },
+    autoProcessing: {
+      autoMask: true,
+      autoDownload: false,
+      saveOriginal: true,
+      highQuality: false
+    }
+  })
   const [isGeneratingKey, setIsGeneratingKey] = useState(false)
   const [showApiKey, setShowApiKey] = useState(true)
+  const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [isEnabling2FA, setIsEnabling2FA] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'account'
+  const supabase = createClientComponentClient()
   
   const { 
     apiKey, 
     generateNewApiKey, 
     revokeApiKey, 
-    copyApiKey,
-    alertState,
-    closeAlert
+    copyApiKey
   } = useDashboard()
+
+  const [localAlertState, setLocalAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    variant: 'warning' | 'danger';
+  } | null>(null)
 
   useEffect(() => {
     loadUserProfile()
@@ -83,25 +131,45 @@ export default function SettingsPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to load user settings')
+        throw new Error(data.error || 'Failed to load profile')
       }
 
       setProfile({
         firstName: data.profile.firstName,
         lastName: data.profile.lastName,
         email: data.profile.email,
-        phone: data.profile.phone || ''
+        phone: data.profile.phone
       })
 
-      setEmailNotifications(data.preferences.email_notifications)
-      setAutoProcessing(data.preferences.auto_processing)
-      setUser(data.profile)
+      setPreferences({
+        emailNotifications: data.preferences.email_notifications || {
+          newLogin: true,
+          usageAlerts: true,
+          newsletter: false,
+          marketing: false
+        },
+        autoProcessing: data.preferences.auto_processing || {
+          autoMask: true,
+          autoDownload: false,
+          saveOriginal: true,
+          highQuality: false
+        }
+      })
+
+      // Set 2FA status
+      setIsTwoFactorEnabled(data.preferences.two_factor_enabled || false)
+      
+      // Reset 2FA setup state if it's already enabled
+      if (data.preferences.two_factor_enabled) {
+        setQrCodeUrl(null)
+        setVerificationCode('')
+      }
     } catch (error) {
-      console.error('Error loading user profile:', error)
+      console.error('Error loading profile:', error)
       toast({
         title: "Error",
-        description: "Failed to load user settings",
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "Failed to load profile",
+        variant: "destructive",
       })
     } finally {
       setIsLoading(false)
@@ -254,6 +322,140 @@ export default function SettingsPage() {
     } finally {
       setIsGeneratingKey(false)
     }
+  }
+
+  async function handleSignOut() {
+    try {
+      await supabase.auth.signOut()
+      toast({
+        title: "Success",
+        description: "You have been signed out successfully.",
+      })
+      router.push('/')
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleEnable2FA() {
+    try {
+      setIsEnabling2FA(true)
+      const response = await fetch('/api/settings/2fa/setup', {
+        method: 'POST',
+      })
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to setup 2FA')
+      }
+      
+      setQrCodeUrl(data.qrCodeUrl)
+    } catch (error) {
+      console.error('Error setting up 2FA:', error)
+      toast({
+        title: "Error",
+        description: "Failed to setup two-factor authentication",
+        variant: "destructive"
+      })
+    } finally {
+      setIsEnabling2FA(false)
+    }
+  }
+
+  async function handleVerify2FA() {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/settings/2fa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: verificationCode })
+      })
+      
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify 2FA')
+      }
+
+      setIsTwoFactorEnabled(true)
+      setQrCodeUrl(null)
+      setVerificationCode('')
+      toast({
+        title: "Success",
+        description: "Two-factor authentication enabled successfully",
+      })
+    } catch (error) {
+      console.error('Error verifying 2FA:', error)
+      toast({
+        title: "Error",
+        description: "Failed to verify two-factor authentication",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleDisable2FA() {
+    setLocalAlertState({
+      isOpen: true,
+      title: "Disable Two-Factor Authentication",
+      description: "Warning: This will remove an important security feature from your account. Are you sure you want to disable two-factor authentication?",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          setIsLoading(true)
+          const response = await fetch('/api/settings/2fa/disable', {
+            method: 'POST'
+          })
+          
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to disable 2FA')
+          }
+
+          setIsTwoFactorEnabled(false)
+          toast({
+            title: "Success",
+            description: "Two-factor authentication disabled successfully",
+          })
+        } catch (error) {
+          console.error('Error disabling 2FA:', error)
+          toast({
+            title: "Error",
+            description: "Failed to disable two-factor authentication",
+            variant: "destructive"
+          })
+        } finally {
+          setIsLoading(false)
+          setLocalAlertState(null)
+        }
+      }
+    })
+  }
+
+  function handleEmailNotificationChange(key: keyof Preferences['emailNotifications']) {
+    setPreferences((prev) => ({
+      ...prev,
+      emailNotifications: {
+        ...prev.emailNotifications,
+        [key]: !prev.emailNotifications[key]
+      }
+    }))
+  }
+
+  function handleAutoProcessingChange(key: keyof Preferences['autoProcessing']) {
+    setPreferences((prev) => ({
+      ...prev,
+      autoProcessing: {
+        ...prev.autoProcessing,
+        [key]: !prev.autoProcessing[key]
+      }
+    }))
   }
 
   return (
@@ -457,7 +659,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch 
                     checked={emailNotifications?.newLogin}
-                    onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, newLogin: checked }))}
+                    onCheckedChange={(checked) => handleEmailNotificationChange('newLogin')}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -469,7 +671,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch 
                     checked={emailNotifications?.usageAlerts}
-                    onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, usageAlerts: checked }))}
+                    onCheckedChange={(checked) => handleEmailNotificationChange('usageAlerts')}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -481,7 +683,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch 
                     checked={emailNotifications?.newsletter}
-                    onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, newsletter: checked }))}
+                    onCheckedChange={(checked) => handleEmailNotificationChange('newsletter')}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -493,7 +695,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch 
                     checked={emailNotifications?.marketing}
-                    onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, marketing: checked }))}
+                    onCheckedChange={(checked) => handleEmailNotificationChange('marketing')}
                   />
                 </div>
               </div>
@@ -536,8 +738,57 @@ export default function SettingsPage() {
                         Add an extra layer of security to your account
                       </p>
                     </div>
-                    <Button variant="outline">Enable</Button>
+                    {isTwoFactorEnabled ? (
+                      <Button 
+                        variant="destructive" 
+                        onClick={handleDisable2FA}
+                        disabled={isLoading}
+                      >
+                        Disable
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        onClick={handleEnable2FA}
+                        disabled={isLoading || isEnabling2FA}
+                      >
+                        {isEnabling2FA ? "Setting up..." : "Enable"}
+                      </Button>
+                    )}
                   </div>
+
+                  {qrCodeUrl && (
+                    <div className="space-y-4 p-4 bg-muted rounded-lg">
+                      <div className="space-y-2">
+                        <p className="font-medium">Scan QR Code</p>
+                        <p className="text-sm text-muted-foreground">
+                          Scan this QR code with your authenticator app
+                        </p>
+                        <div className="flex justify-center p-4 bg-white rounded-lg">
+                          <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="verificationCode">Verification Code</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="verificationCode"
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value)}
+                            placeholder="Enter 6-digit code"
+                            maxLength={6}
+                          />
+                          <Button 
+                            onClick={handleVerify2FA}
+                            disabled={verificationCode.length !== 6 || isLoading}
+                          >
+                            {isLoading ? "Verifying..." : "Verify"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -639,7 +890,7 @@ export default function SettingsPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleSignOut}>
                       <LogOut className="h-4 w-4 mr-2" />
                       Sign Out
                     </Button>
@@ -719,14 +970,16 @@ export default function SettingsPage() {
           </TabsContent>
         </Tabs>
       </div>
-      {alertState && (
+      {localAlertState && (
         <CustomAlertDialog
-          isOpen={alertState.isOpen}
-          onClose={closeAlert}
-          onConfirm={alertState.onConfirm}
-          title={alertState.title}
-          description={alertState.description}
-          variant={alertState.variant}
+          isOpen={localAlertState.isOpen}
+          onClose={() => setLocalAlertState(null)}
+          onConfirm={localAlertState.onConfirm}
+          title={localAlertState.title}
+          description={localAlertState.description}
+          variant={localAlertState.variant}
+          confirmText="Disable 2FA"
+          cancelText="Cancel"
         />
       )}
     </div>

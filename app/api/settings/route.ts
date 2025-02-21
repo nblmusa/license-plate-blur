@@ -32,14 +32,15 @@ export async function GET() {
         phone: session.user.user_metadata?.phone || '',
         avatar_url: session.user.user_metadata?.avatar_url
       },
-      preferences: preferences || {
-        email_notifications: {
+      preferences: {
+        ...preferences,
+        email_notifications: preferences?.email_notifications || {
           newLogin: true,
           usageAlerts: true,
           newsletter: false,
           marketing: false
         },
-        auto_processing: {
+        auto_processing: preferences?.auto_processing || {
           autoMask: true,
           autoDownload: false,
           saveOriginal: true,
