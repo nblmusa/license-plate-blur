@@ -524,611 +524,664 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      <div className="max-w-6xl mx-auto relative">
-        <HistoryDialog />
-        <ShortcutsDialog />
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" asChild className="shrink-0">
-            <Link href="/">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Upload Image</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Upload an image to automatically detect and mask license plates
-            </p>
+    <div className="min-h-screen bg-muted/30">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+        <div className="container mx-auto px-4 py-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" asChild className="shrink-0">
+                <Link href="/">
+                  <ArrowLeft className="h-5 w-5" />
+                </Link>
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">Upload Image</h1>
+                <p className="text-sm text-muted-foreground">
+                  Upload an image to automatically detect and mask license plates
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <HistoryDialog />
+              <ShortcutsDialog />
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column - Upload */}
-          <div className="space-y-6">
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Upload Image</h2>
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto">
+          {/* Main Content */}
+          <div className="grid lg:grid-cols-12 gap-6">
+            {/* Left Column - Controls */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Upload Card with improved visual feedback */}
+              <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                <div className="p-4 border-b bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Upload Image</h2>
+                  </div>
                 </div>
-              </div>
-              <div className="p-6">
-                <div
-                  {...getRootProps()}
-                  className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-                    ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
-                  title="Upload Files (Ctrl/Cmd + U)"
-                >
-                  <input {...getInputProps()} />
-                  <div className={`transition-transform duration-200 ${isDragActive ? 'scale-110' : ''}`}>
-                    <div className={`mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center
-                      ${isDragActive ? 'animate-bounce' : ''}`}>
-                      <Upload className="h-6 w-6 text-primary" />
+                <div className="p-4">
+                  <div
+                    {...getRootProps()}
+                    className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ease-in-out
+                      ${isDragActive ? 'border-primary bg-primary/5 scale-[0.98] shadow-inner' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
+                    title="Upload Files (Ctrl/Cmd + U)"
+                  >
+                    <input {...getInputProps()} />
+                    <div className={`transition-transform duration-300 ${isDragActive ? 'scale-105' : ''}`}>
+                      <div className={`mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center
+                        ${isDragActive ? 'animate-bounce' : 'animate-pulse'}`}>
+                        <Upload className="h-6 w-6 text-primary" />
+                      </div>
+                      {isDragActive ? (
+                        <div className="space-y-2">
+                          <p className="text-primary font-medium animate-pulse">Release to upload files</p>
+                          <p className="text-sm text-primary/80">Your files will be processed automatically</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="font-medium">Drag & drop an image here</p>
+                          <p className="text-sm text-muted-foreground">or click to select a file</p>
+                          <p className="text-xs text-muted-foreground mt-4">
+                            Supported formats: JPEG, PNG, WebP • Max size: 10MB
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    {isDragActive ? (
-                      <div className="space-y-2">
-                        <p className="text-primary font-medium">Release to upload files</p>
-                        <p className="text-sm text-primary/80">Your files will be processed automatically</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <p className="font-medium">Drag & drop an image here</p>
-                        <p className="text-sm text-muted-foreground">or click to select a file</p>
-                        <p className="text-xs text-muted-foreground mt-4">
-                          Supported formats: JPEG, PNG, WebP • Max size: 10MB
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
 
-            {/* Logo Upload Section */}
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b bg-muted/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ImagePlus className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Custom Logo (Optional)</h2>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={useLogo}
-                      onCheckedChange={(checked) => {
-                        setUseLogo(checked)
-                        if (image) processBatchQueue()
-                      }}
-                      disabled={!logo}
-                    />
-                    <Label>Use Logo</Label>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6">
-                {logo ? (
-                  <div className="space-y-6">
-                    <div className="relative">
-                      <div className="relative aspect-video bg-muted/50 rounded-lg overflow-hidden">
-                        <Image
-                          src={logo}
-                          alt="Logo"
-                          fill
-                          className="object-contain p-4"
-                        />
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -top-2 -right-2"
-                        onClick={() => {
-                          setLogo(null)
-                          setUseLogo(false)
-                          processBatchQueue()
+              {/* Logo Upload with improved layout */}
+              <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                <div className="p-6 border-b bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ImagePlus className="h-5 w-5 text-primary" />
+                      <h2 className="text-lg font-semibold">Custom Logo (Optional)</h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={useLogo}
+                        onCheckedChange={(checked) => {
+                          setUseLogo(checked)
+                          if (image) processBatchQueue()
                         }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                        disabled={!logo}
+                      />
+                      <Label>Use Logo</Label>
                     </div>
-                    
-                    {/* Logo Customization Controls */}
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Position</Label>
-                        <Select
-                          value={logoSettings.position}
-                          onValueChange={(value) => {
-                            setLogoSettings(prev => ({ ...prev, position: value }))
+                  </div>
+                </div>
+                <div className="p-6">
+                  {logo ? (
+                    <div className="space-y-6">
+                      <div className="relative">
+                        <div className="relative aspect-video bg-muted/50 rounded-lg overflow-hidden">
+                          <Image
+                            src={logo}
+                            alt="Logo"
+                            fill
+                            className="object-contain p-4"
+                          />
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2"
+                          onClick={() => {
+                            setLogo(null)
+                            setUseLogo(false)
                             processBatchQueue()
                           }}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select position" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="center">Center</SelectItem>
-                            <SelectItem value="top-left">Top Left</SelectItem>
-                            <SelectItem value="top-right">Top Right</SelectItem>
-                            <SelectItem value="bottom-left">Bottom Left</SelectItem>
-                            <SelectItem value="bottom-right">Bottom Right</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                       
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Size</Label>
-                          <span className="text-sm text-muted-foreground">{logoSettings.size}%</span>
+                      {/* Logo Customization Controls */}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Position</Label>
+                          <Select
+                            value={logoSettings.position}
+                            onValueChange={(value) => {
+                              setLogoSettings(prev => ({ ...prev, position: value }))
+                              processBatchQueue()
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select position" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="center">Center</SelectItem>
+                              <SelectItem value="top-left">Top Left</SelectItem>
+                              <SelectItem value="top-right">Top Right</SelectItem>
+                              <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                              <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <Slider
-                          value={[logoSettings.size]}
-                          onValueChange={(value) => {
-                            setLogoSettings(prev => ({ ...prev, size: value[0] }))
-                            processBatchQueue()
-                          }}
-                          min={10}
-                          max={200}
-                          step={5}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Opacity</Label>
-                          <span className="text-sm text-muted-foreground">{logoSettings.opacity}%</span>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Size</Label>
+                            <span className="text-sm text-muted-foreground">{logoSettings.size}%</span>
+                          </div>
+                          <Slider
+                            value={[logoSettings.size]}
+                            onValueChange={(value) => {
+                              setLogoSettings(prev => ({ ...prev, size: value[0] }))
+                              processBatchQueue()
+                            }}
+                            min={10}
+                            max={200}
+                            step={5}
+                          />
                         </div>
-                        <Slider
-                          value={[logoSettings.opacity]}
-                          onValueChange={(value) => {
-                            setLogoSettings(prev => ({ ...prev, opacity: value[0] }))
-                            processBatchQueue()
-                          }}
-                          min={10}
-                          max={100}
-                          step={5}
-                        />
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Opacity</Label>
+                            <span className="text-sm text-muted-foreground">{logoSettings.opacity}%</span>
+                          </div>
+                          <Slider
+                            value={[logoSettings.opacity]}
+                            onValueChange={(value) => {
+                              setLogoSettings(prev => ({ ...prev, opacity: value[0] }))
+                              processBatchQueue()
+                            }}
+                            min={10}
+                            max={100}
+                            step={5}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    {...getLogoRootProps()}
-                    className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
-                      ${isLogoDragActive ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
-                  >
-                    <input {...getLogoInputProps()} />
-                    <div className="space-y-2">
-                      <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <ImagePlus className="h-5 w-5 text-primary" />
-                      </div>
-                      <p className="font-medium text-sm">Add a custom logo</p>
-                      <p className="text-xs text-muted-foreground">
-                        PNG or WebP with transparency • Max size: 2MB
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Processing Options */}
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Processing Options</h2>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="space-y-6">
-                  {/* Confidence Threshold */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Detection Confidence</Label>
-                      <span className="text-sm text-muted-foreground">{processingOptions.confidenceThreshold * 100}%</span>
-                    </div>
-                    <Slider
-                      value={[processingOptions.confidenceThreshold * 100]}
-                      onValueChange={(value) => {
-                        setProcessingOptions(prev => ({ ...prev, confidenceThreshold: value[0] / 100 }))
-                        processBatchQueue()
-                      }}
-                      min={10}
-                      max={100}
-                      step={5}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Higher values mean more accurate but fewer detections
-                    </p>
-                  </div>
-
-                  {/* Masking Style */}
-                  <div className="space-y-2">
-                    <Label>Masking Style</Label>
-                    <Select
-                      value={processingOptions.maskingStyle}
-                      onValueChange={(value: 'blur' | 'solid' | 'pixelate') => {
-                        setProcessingOptions(prev => ({ ...prev, maskingStyle: value }))
-                        processBatchQueue()
-                      }}
+                  ) : (
+                    <div
+                      {...getLogoRootProps()}
+                      className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all
+                        ${isLogoDragActive ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
                     >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select masking style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="blur">Gaussian Blur</SelectItem>
-                        <SelectItem value="solid">Solid Color</SelectItem>
-                        <SelectItem value="pixelate">Pixelate</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <input {...getLogoInputProps()} />
+                      <div className="space-y-2">
+                        <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <ImagePlus className="h-5 w-5 text-primary" />
+                        </div>
+                        <p className="font-medium text-sm">Add a custom logo</p>
+                        <p className="text-xs text-muted-foreground">
+                          PNG or WebP with transparency • Max size: 2MB
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Card>
 
-                  {/* Style-specific options */}
-                  {processingOptions.maskingStyle === 'blur' && (
+              {/* Processing Options in an accordion */}
+              <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                <div className="p-6 border-b bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Processing Options</h2>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-6">
+                    {/* Confidence Threshold */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label>Blur Strength</Label>
-                        <span className="text-sm text-muted-foreground">{processingOptions.blurStrength}</span>
+                        <Label>Detection Confidence</Label>
+                        <span className="text-sm text-muted-foreground">{processingOptions.confidenceThreshold * 100}%</span>
                       </div>
                       <Slider
-                        value={[processingOptions.blurStrength]}
+                        value={[processingOptions.confidenceThreshold * 100]}
                         onValueChange={(value) => {
-                          setProcessingOptions(prev => ({ ...prev, blurStrength: value[0] }))
+                          setProcessingOptions(prev => ({ ...prev, confidenceThreshold: value[0] / 100 }))
                           processBatchQueue()
                         }}
-                        min={5}
-                        max={50}
+                        min={10}
+                        max={100}
                         step={5}
                       />
+                      <p className="text-sm text-muted-foreground">
+                        Higher values mean more accurate but fewer detections
+                      </p>
                     </div>
-                  )}
 
-                  {processingOptions.maskingStyle === 'solid' && (
+                    {/* Masking Style */}
                     <div className="space-y-2">
-                      <Label>Solid Color</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="color"
-                          value={processingOptions.solidColor}
-                          onChange={(e) => {
-                            setProcessingOptions(prev => ({ ...prev, solidColor: e.target.value }))
-                            processBatchQueue()
-                          }}
-                          className="w-20 p-1 h-8"
-                        />
-                        <Input
-                          type="text"
-                          value={processingOptions.solidColor}
-                          onChange={(e) => {
-                            setProcessingOptions(prev => ({ ...prev, solidColor: e.target.value }))
-                            processBatchQueue()
-                          }}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {processingOptions.maskingStyle === 'pixelate' && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>Pixel Size</Label>
-                        <span className="text-sm text-muted-foreground">{processingOptions.pixelateSize}px</span>
-                      </div>
-                      <Slider
-                        value={[processingOptions.pixelateSize]}
-                        onValueChange={(value) => {
-                          setProcessingOptions(prev => ({ ...prev, pixelateSize: value[0] }))
+                      <Label>Masking Style</Label>
+                      <Select
+                        value={processingOptions.maskingStyle}
+                        onValueChange={(value: 'blur' | 'solid' | 'pixelate') => {
+                          setProcessingOptions(prev => ({ ...prev, maskingStyle: value }))
                           processBatchQueue()
                         }}
-                        min={5}
-                        max={30}
-                        step={1}
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select masking style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="blur">Gaussian Blur</SelectItem>
+                          <SelectItem value="solid">Solid Color</SelectItem>
+                          <SelectItem value="pixelate">Pixelate</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
 
-                  {/* Border Options */}
-                  <div className="space-y-4">
-                    <Label>Border Style</Label>
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Style-specific options */}
+                    {processingOptions.maskingStyle === 'blur' && (
                       <div className="space-y-2">
-                        <Label>Color</Label>
+                        <div className="flex items-center justify-between">
+                          <Label>Blur Strength</Label>
+                          <span className="text-sm text-muted-foreground">{processingOptions.blurStrength}</span>
+                        </div>
+                        <Slider
+                          value={[processingOptions.blurStrength]}
+                          onValueChange={(value) => {
+                            setProcessingOptions(prev => ({ ...prev, blurStrength: value[0] }))
+                            processBatchQueue()
+                          }}
+                          min={5}
+                          max={50}
+                          step={5}
+                        />
+                      </div>
+                    )}
+
+                    {processingOptions.maskingStyle === 'solid' && (
+                      <div className="space-y-2">
+                        <Label>Solid Color</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             type="color"
-                            value={processingOptions.borderColor}
+                            value={processingOptions.solidColor}
                             onChange={(e) => {
-                              setProcessingOptions(prev => ({ ...prev, borderColor: e.target.value }))
+                              setProcessingOptions(prev => ({ ...prev, solidColor: e.target.value }))
                               processBatchQueue()
                             }}
                             className="w-20 p-1 h-8"
                           />
                           <Input
                             type="text"
-                            value={processingOptions.borderColor}
+                            value={processingOptions.solidColor}
                             onChange={(e) => {
-                              setProcessingOptions(prev => ({ ...prev, borderColor: e.target.value }))
+                              setProcessingOptions(prev => ({ ...prev, solidColor: e.target.value }))
                               processBatchQueue()
                             }}
                             className="flex-1"
                           />
                         </div>
                       </div>
+                    )}
+
+                    {processingOptions.maskingStyle === 'pixelate' && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label>Width</Label>
-                          <span className="text-sm text-muted-foreground">{processingOptions.borderWidth}px</span>
+                          <Label>Pixel Size</Label>
+                          <span className="text-sm text-muted-foreground">{processingOptions.pixelateSize}px</span>
                         </div>
                         <Slider
-                          value={[processingOptions.borderWidth]}
+                          value={[processingOptions.pixelateSize]}
                           onValueChange={(value) => {
-                            setProcessingOptions(prev => ({ ...prev, borderWidth: value[0] }))
+                            setProcessingOptions(prev => ({ ...prev, pixelateSize: value[0] }))
                             processBatchQueue()
                           }}
-                          min={0}
-                          max={10}
+                          min={5}
+                          max={30}
                           step={1}
                         />
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {image && (
-              <Card className="overflow-hidden">
-                <div className="p-6 border-b bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Original Image</h2>
-                  </div>
-                </div>
-                <div className="relative aspect-video bg-muted/50">
-                  <Image
-                    src={image}
-                    alt="Original"
-                    fill
-                    className="object-contain p-4"
-                    priority
-                  />
-                </div>
-              </Card>
-            )}
-          </div>
-
-          {/* Right Column - Preview */}
-          <div className="space-y-6">
-            {maskedImage ? (
-              <Card className="overflow-hidden">
-                <div className="p-6 border-b bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Masked Image</h2>
-                  </div>
-                </div>
-                <div className="relative aspect-video bg-muted/50">
-                  <Image
-                    src={maskedImage}
-                    alt="Masked"
-                    fill
-                    className="object-contain p-4"
-                    priority
-                  />
-                </div>
-                <div className="p-6 bg-muted/50 border-t">
-                  <div className="flex justify-end gap-3">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => {
-                        setMaskedImage(null)
-                        processBatchQueue()
-                      }}
-                    >
-                      Try Another
-                    </Button>
-                    <Button 
-                      onClick={downloadAll}
-                      className="gap-2"
-                      title="Download All (Ctrl/Cmd + D)"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download All
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ) : image ? (
-              <Card className="overflow-hidden">
-                <div className="p-6 border-b bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Processing</h2>
-                  </div>
-                </div>
-                <div className="p-12">
-                  <div className="text-center space-y-6">
-                    {isBatchProcessing ? (
-                      <>
-                        <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                        </div>
-                        <div className="space-y-4">
-                          <p className="font-medium">Processing your images...</p>
-                          <div className="w-full max-w-xs mx-auto">
-                            <Progress value={progress} className="h-2" />
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Detecting and masking license plates
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-primary" />
-                        </div>
-                        <p className="text-muted-foreground">Preparing preview...</p>
-                      </>
                     )}
-                  </div>
-                </div>
-              </Card>
-            ) : (
-              <Card className="overflow-hidden">
-                <div className="p-6 border-b bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Preview</h2>
-                  </div>
-                </div>
-                <div className="p-12">
-                  <div className="text-center space-y-4">
-                    <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">No Image Selected</p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Upload an image to see the preview
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            )}
 
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b bg-muted/50">
-                <div className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Privacy & Security</h2>
-                </div>
-              </div>
-              <div className="p-6">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">Note:</span>{" "}
-                  All images are processed securely and are not stored on our servers.
-                  The masked images are generated client-side for your privacy.
-                </p>
-              </div>
-            </Card>
-
-            {/* Batch Processing Queue */}
-            {batchQueue.length > 0 && (
-              <Card className="overflow-hidden">
-                <div className="p-6 border-b bg-muted/50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Upload className="h-5 w-5 text-primary" />
-                      <h2 className="text-lg font-semibold">Processing Queue</h2>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearCompleted}
-                        disabled={!batchQueue.some(item => item.status === 'completed')}
-                      >
-                        Clear Completed
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={downloadAll}
-                        disabled={!batchQueue.some(item => item.status === 'completed')}
-                      >
-                        Download All
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {batchQueue.map(item => (
-                      <div key={item.id} className="flex items-center gap-4">
-                        <div 
-                          className={`flex-1 space-y-2 ${item.status === 'completed' ? 'cursor-pointer hover:opacity-90' : ''}`}
-                          onClick={() => {
-                            if (item.status === 'completed' && item.result) {
-                              setMaskedImage(item.result)
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-4">
-                            {item.status === 'completed' && item.result && (
-                              <div className="relative w-12 h-12 rounded bg-muted/50 overflow-hidden shrink-0">
-                                <Image
-                                  src={item.result}
-                                  alt={item.file.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium">{item.file.name}</p>
-                                <span className="text-sm text-muted-foreground">
-                                  {item.status === 'completed' && '✓ Done'}
-                                  {item.status === 'processing' && '⟳ Processing'}
-                                  {item.status === 'error' && '✕ Error'}
-                                  {item.status === 'pending' && '⋯ Pending'}
-                                </span>
-                              </div>
-                              <Progress value={item.progress} className="h-1" />
-                              {item.error && (
-                                <p className="text-sm text-destructive">{item.error}</p>
-                              )}
-                            </div>
+                    {/* Border Options */}
+                    <div className="space-y-4">
+                      <Label>Border Style</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Color</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="color"
+                              value={processingOptions.borderColor}
+                              onChange={(e) => {
+                                setProcessingOptions(prev => ({ ...prev, borderColor: e.target.value }))
+                                processBatchQueue()
+                              }}
+                              className="w-20 p-1 h-8"
+                            />
+                            <Input
+                              type="text"
+                              value={processingOptions.borderColor}
+                              onChange={(e) => {
+                                setProcessingOptions(prev => ({ ...prev, borderColor: e.target.value }))
+                                processBatchQueue()
+                              }}
+                              className="flex-1"
+                            />
                           </div>
-                          {item.status === 'completed' && (
-                            <p className="text-xs text-muted-foreground">Click to view in preview</p>
-                          )}
                         </div>
-                        {item.status === 'completed' && item.result && (
-                          <Button
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label>Width</Label>
+                            <span className="text-sm text-muted-foreground">{processingOptions.borderWidth}px</span>
+                          </div>
+                          <Slider
+                            value={[processingOptions.borderWidth]}
+                            onValueChange={(value) => {
+                              setProcessingOptions(prev => ({ ...prev, borderWidth: value[0] }))
+                              processBatchQueue()
+                            }}
+                            min={0}
+                            max={10}
+                            step={1}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Column - Preview and Queue */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Preview Area with improved layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {image && (
+                  <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                    <div className="p-4 border-b bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-5 w-5 text-primary" />
+                        <h2 className="text-lg font-semibold">Original</h2>
+                      </div>
+                    </div>
+                    <div className="relative aspect-[4/3] bg-muted/50">
+                      <Image
+                        src={image}
+                        alt="Original"
+                        fill
+                        className="object-contain p-4"
+                        priority
+                      />
+                    </div>
+                  </Card>
+                )}
+
+                {maskedImage ? (
+                  <Card className="overflow-hidden transition-shadow hover:shadow-md group">
+                    <div className="p-4 border-b bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-5 w-5 text-primary" />
+                          <h2 className="text-lg font-semibold">Masked</h2>
+                        </div>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
                             size="sm"
-                            variant="ghost"
-                            className="shrink-0"
                             onClick={() => {
-                              const link = document.createElement('a')
-                              link.href = item.result!
-                              link.download = `masked-${item.file.name}`
-                              document.body.appendChild(link)
-                              link.click()
-                              document.body.removeChild(link)
+                              setMaskedImage(null)
+                              processBatchQueue()
                             }}
                           >
-                            <Download className="h-4 w-4" />
+                            Try Another
                           </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="relative aspect-[4/3] bg-muted/50 group/image">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover/image:opacity-100 transition-opacity" />
+                      <Image
+                        src={maskedImage}
+                        alt="Masked"
+                        fill
+                        className="object-contain p-4"
+                        priority
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 p-4 opacity-0 group-hover/image:opacity-100 transition-opacity">
+                        <Button 
+                          onClick={downloadAll}
+                          className="w-full gap-2"
+                          title="Download All (Ctrl/Cmd + D)"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ) : image ? (
+                  <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                    <div className="p-12">
+                      <div className="text-center space-y-6">
+                        {isBatchProcessing ? (
+                          <>
+                            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center relative">
+                              <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                              <Shield className="h-8 w-8 text-primary animate-pulse" />
+                            </div>
+                            <div className="space-y-4">
+                              <p className="font-medium">Processing your images...</p>
+                              <div className="w-full max-w-xs mx-auto relative">
+                                <Progress value={progress} className="h-2" />
+                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 min-w-[4rem] text-sm text-muted-foreground">
+                                  {progress}%
+                                </div>
+                              </div>
+                              <p className="text-sm text-muted-foreground animate-pulse">
+                                Detecting and masking license plates
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                              <div className="animate-pulse">
+                                <ImageIcon className="h-8 w-8 text-primary" />
+                              </div>
+                            </div>
+                            <p className="text-muted-foreground animate-pulse">Preparing preview...</p>
+                          </>
                         )}
+                      </div>
+                    </div>
+                  </Card>
+                ) : null}
+              </div>
+
+              {/* Batch Processing Queue with improved visualization */}
+              {batchQueue.length > 0 && (
+                <Card className="overflow-hidden transition-shadow hover:shadow-md">
+                  <div className="p-4 border-b bg-muted/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Upload className="h-5 w-5 text-primary" />
+                        <h2 className="text-lg font-semibold">Processing Queue</h2>
+                        <div className="ml-2 text-sm text-muted-foreground">
+                          ({batchQueue.filter(item => item.status === 'completed').length}/{batchQueue.length})
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearCompleted}
+                          disabled={!batchQueue.some(item => item.status === 'completed')}
+                          className="relative group"
+                        >
+                          Clear Completed
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-[10px] text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            {batchQueue.filter(item => item.status === 'completed').length}
+                          </span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={downloadAll}
+                          disabled={!batchQueue.some(item => item.status === 'completed')}
+                          className="relative group"
+                        >
+                          Download All
+                          <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-[10px] text-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            {batchQueue.filter(item => item.status === 'completed').length}
+                          </span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="divide-y">
+                    {batchQueue.map(item => (
+                      <div 
+                        key={item.id} 
+                        className={`p-4 transition-all duration-300 ${
+                          item.status === 'completed' ? 'hover:bg-primary/5' :
+                          item.status === 'error' ? 'hover:bg-destructive/5' :
+                          'hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div 
+                            className={`flex-1 space-y-2 ${item.status === 'completed' ? 'cursor-pointer hover:opacity-90' : ''}`}
+                            onClick={() => {
+                              if (item.status === 'completed' && item.result) {
+                                setMaskedImage(item.result)
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-4">
+                              {item.status === 'completed' && item.result ? (
+                                <div className="relative w-12 h-12 rounded-lg bg-muted/50 overflow-hidden shrink-0 ring-1 ring-muted group/thumb">
+                                  <Image
+                                    src={item.result}
+                                    alt={item.file.name}
+                                    fill
+                                    className="object-cover transition-transform group-hover/thumb:scale-110"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity" />
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-muted/50 shrink-0 flex items-center justify-center">
+                                  {item.status === 'processing' ? (
+                                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                                  ) : item.status === 'error' ? (
+                                    <X className="h-6 w-6 text-destructive" />
+                                  ) : (
+                                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                                  )}
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-4">
+                                  <p className="font-medium truncate">{item.file.name}</p>
+                                  <span className={`text-sm whitespace-nowrap flex items-center gap-1 ${
+                                    item.status === 'completed' ? 'text-primary' :
+                                    item.status === 'error' ? 'text-destructive' :
+                                    'text-muted-foreground'
+                                  }`}>
+                                    {item.status === 'completed' && (
+                                      <>✓ Done</>
+                                    )}
+                                    {item.status === 'processing' && (
+                                      <>
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        Processing
+                                      </>
+                                    )}
+                                    {item.status === 'error' && (
+                                      <>✕ Error</>
+                                    )}
+                                    {item.status === 'pending' && (
+                                      <>⋯ Pending</>
+                                    )}
+                                  </span>
+                                </div>
+                                <Progress 
+                                  value={item.progress} 
+                                  className={`h-1 ${
+                                    item.status === 'completed' ? 'bg-primary/20' :
+                                    item.status === 'error' ? 'bg-destructive/20' :
+                                    'bg-muted'
+                                  }`} 
+                                />
+                                {item.error && (
+                                  <p className="text-sm text-destructive mt-1 animate-pulse">{item.error}</p>
+                                )}
+                              </div>
+                            </div>
+                            {item.status === 'completed' && (
+                              <p className="text-xs text-muted-foreground">Click to view in preview</p>
+                            )}
+                          </div>
+                          {item.status === 'completed' && item.result && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => {
+                                const link = document.createElement('a')
+                                link.href = item.result!
+                                link.download = `masked-${item.file.name}`
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                              }}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-                <div className="p-6 border-t">
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mt-2">
-                    <div className="flex items-center gap-2">
+                  <div className="p-4 border-t">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>Total Size</span>
+                        <span className="whitespace-nowrap">
+                          {(totalSize / (1024 * 1024)).toFixed(1)}MB / {MAX_FILE_SIZE / (1024 * 1024)}MB
+                        </span>
+                      </div>
                       <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-primary transition-all" 
+                          className="h-full bg-primary transition-all duration-300" 
                           style={{ 
                             width: `${Math.min((totalSize / MAX_FILE_SIZE) * 100, 100)}%`,
                             backgroundColor: totalSize > MAX_FILE_SIZE ? 'var(--destructive)' : undefined
                           }} 
                         />
                       </div>
+                      {totalSize > MAX_FILE_SIZE && (
+                        <p className="text-xs text-destructive animate-pulse">
+                          Total size exceeds the maximum limit
+                        </p>
+                      )}
                     </div>
-                    <span>
-                      {(totalSize / (1024 * 1024)).toFixed(1)}MB / {MAX_FILE_SIZE / (1024 * 1024)}MB
-                    </span>
+                  </div>
+                </Card>
+              )}
+
+              {/* Privacy Notice with improved design */}
+              <Card className="overflow-hidden transition-shadow hover:shadow-md bg-primary/5 border-primary/20">
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <h2 className="text-lg font-semibold mb-2">Privacy & Security</h2>
+                      <p className="text-sm text-muted-foreground">
+                        All images are processed securely and are not stored on our servers.
+                        The masked images are generated client-side for your privacy.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </Card>
-            )}
+            </div>
           </div>
         </div>
       </div>
