@@ -23,20 +23,51 @@ import {
   EyeOff,
   AlertTriangle,
   ChevronRight,
-  Zap
+  Zap,
+  Loader2
 } from "lucide-react"
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useState } from "react"
+import { useDashboard } from "@/hooks/use-dashboard"
+import { formatDistanceToNow } from 'date-fns'
+import Image from "next/image"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashboardPage() {
   const [showApiKey, setShowApiKey] = useState(false)
-  const demoApiKey = "pk_test_51QuXNUPcpoWva5n6..."
+  const {
+    isLoading,
+    stats,
+    recentActivity,
+    apiKey,
+    isAuthenticated,
+    user,
+    generateNewApiKey,
+    copyApiKey,
+    refreshData
+  } = useDashboard()
 
-  const copyApiKey = () => {
-    navigator.clipboard.writeText(demoApiKey)
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <Card className="max-w-md mx-auto p-6">
+          <div className="text-center space-y-4">
+            <Shield className="h-12 w-12 mx-auto text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Authentication Required</h2>
+            <p className="text-muted-foreground">Please sign in to access your dashboard.</p>
+            <Button asChild>
+              <Link href="/login">Sign In</Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
   }
+
+  const usagePercentage = (stats.imagesProcessed / stats.monthlyQuota) * 100
+  const isNearLimit = usagePercentage >= 80
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -46,7 +77,7 @@ export default function DashboardPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 rounded-full bg-primary/5">
               <Car className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Welcome back!</span>
+              <span className="text-sm font-medium text-primary">Welcome back{user?.email ? `, ${user.email.split('@')[0]}!` : '!'}</span>
             </div>
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 dark:from-blue-400 dark:via-blue-300 dark:to-blue-200">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -54,9 +85,9 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" size="sm" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
+            <Button variant="outline" size="sm" className="gap-2" onClick={refreshData}>
+              <Loader2 className="h-4 w-4" />
+              Refresh
             </Button>
             <Button size="sm" className="gap-2" asChild>
               <Link href="/upload">
@@ -68,193 +99,224 @@ export default function DashboardPage() {
         </div>
 
         {/* Usage Alert */}
-        <Alert className="bg-yellow-50/50 dark:bg-yellow-950/50 border-yellow-200/50 dark:border-yellow-800/50">
-          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-          <AlertTitle className="text-yellow-600 dark:text-yellow-400">Usage Limit Approaching</AlertTitle>
-          <AlertDescription className="text-yellow-600/90 dark:text-yellow-400/90">
-            You have used 80% of your monthly image processing limit. Consider upgrading to our Pro plan for unlimited processing.
-          </AlertDescription>
-        </Alert>
-
-        {/* Quick Actions */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30 cursor-pointer group">
-            <Link href="/upload" className="flex items-center gap-4">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <Upload className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">Upload Image</p>
-                <p className="text-sm text-muted-foreground">Process new images</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Card>
-          <Card className="p-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30 cursor-pointer group">
-            <Link href="/docs" className="flex items-center gap-4">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <Key className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">API Access</p>
-                <p className="text-sm text-muted-foreground">View documentation</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Card>
-          <Card className="p-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30 cursor-pointer group">
-            <Link href="/pricing" className="flex items-center gap-4">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <Zap className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">Upgrade Plan</p>
-                <p className="text-sm text-muted-foreground">Get more features</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Card>
-          <Card className="p-4 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30 cursor-pointer group">
-            <Link href="/settings" className="flex items-center gap-4">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <Users className="h-4 w-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">Team Access</p>
-                <p className="text-sm text-muted-foreground">Manage members</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Card>
-        </div>
+        {isNearLimit && (
+          <Alert className="bg-yellow-50/50 dark:bg-yellow-950/50 border-yellow-200/50 dark:border-yellow-800/50">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            <AlertTitle className="text-yellow-600 dark:text-yellow-400">Usage Limit Approaching</AlertTitle>
+            <AlertDescription className="text-yellow-600/90 dark:text-yellow-400/90">
+              You have used {Math.round(usagePercentage)}% of your monthly image processing limit. Consider upgrading to our Pro plan for unlimited processing.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Stats Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <ImageIcon className="h-4 w-4 text-primary" />
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-1 w-full" />
+                <Skeleton className="h-4 w-32" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground">Images Processed</p>
-                <h3 className="text-2xl font-bold">80</h3>
-              </div>
-            </div>
-            <Progress value={80} className="h-1" />
-            <p className="text-xs text-muted-foreground mt-2">20 images remaining this month</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-lg bg-primary/10">
+                    <ImageIcon className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Images Processed</p>
+                    <h3 className="text-2xl font-bold">{stats.imagesProcessed}</h3>
+                  </div>
+                </div>
+                <Progress value={usagePercentage} className="h-1" />
+                <p className="text-xs text-muted-foreground mt-2">
+                  {stats.monthlyQuota - stats.imagesProcessed} images remaining this month
+                </p>
+              </>
+            )}
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <Gauge className="h-4 w-4 text-primary" />
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-1 w-full" />
+                <Skeleton className="h-4 w-32" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground">Monthly Usage</p>
-                <h3 className="text-2xl font-bold">80%</h3>
-              </div>
-            </div>
-            <Progress value={80} className="h-1" />
-            <p className="text-xs text-muted-foreground mt-2">Reset in 7 days</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-lg bg-primary/10">
+                    <Gauge className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Monthly Usage</p>
+                    <h3 className="text-2xl font-bold">{Math.round(usagePercentage)}%</h3>
+                  </div>
+                </div>
+                <Progress value={usagePercentage} className="h-1" />
+                <p className="text-xs text-muted-foreground mt-2">Reset in {new Date().getDate()} days</p>
+              </>
+            )}
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <Shield className="h-4 w-4 text-primary" />
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-4 w-32" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground">Current Plan</p>
-                <h3 className="text-2xl font-bold">Free</h3>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 mt-3">
-              <Sparkles className="h-3.5 w-3.5 text-yellow-500" />
-              <span className="text-xs text-muted-foreground">Upgrade for more features</span>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-lg bg-primary/10">
+                    <Shield className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">License Plates Detected</p>
+                    <h3 className="text-2xl font-bold">{stats.detectedPlates}</h3>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-3">
+                  <Car className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs text-muted-foreground">Total plates detected and masked</span>
+                </div>
+              </>
+            )}
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 rounded-lg bg-primary/10">
-                <History className="h-4 w-4 text-primary" />
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-4 w-32" />
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-muted-foreground">Last Upload</p>
-                <h3 className="text-2xl font-bold">2h ago</h3>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 mt-3">
-              <Upload className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs text-muted-foreground">Process more images</span>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2.5 rounded-lg bg-primary/10">
+                    <History className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-muted-foreground">Last Upload</p>
+                    <h3 className="text-2xl font-bold">
+                      {stats.lastUploadTime ? formatDistanceToNow(new Date(stats.lastUploadTime), { addSuffix: true }) : 'Never'}
+                    </h3>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 mt-3">
+                  <Upload className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs text-muted-foreground">Process more images</span>
+                </div>
+              </>
+            )}
           </Card>
         </div>
 
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Recent Activity */}
-          <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
+          <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
             <div className="p-6 border-b bg-muted/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Car className="h-5 w-5 text-primary" />
                   <h2 className="text-lg font-semibold">Recent Activity</h2>
                 </div>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  View All
+                <Button variant="ghost" size="sm" className="gap-2" onClick={refreshData}>
+                  Refresh
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
             <div className="p-6">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="aspect-square rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer relative group overflow-hidden">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+              {isLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <Skeleton key={i} className="aspect-square rounded-lg" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {recentActivity.map((item) => (
+                    <div key={item.id} className="aspect-square rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer relative group overflow-hidden">
+                      {item.thumbnailUrl ? (
+                        <Image
+                          src={item.thumbnailUrl}
+                          alt={item.filename}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform">
+                        <p className="text-xs text-white truncate">{item.filename}</p>
+                        <p className="text-xs text-white/70">
+                          {formatDistanceToNow(new Date(item.processedAt), { addSuffix: true })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-3 translate-y-full group-hover:translate-y-0 transition-transform">
-                      <p className="text-xs text-white">car_{i}.jpg</p>
-                      <p className="text-xs text-white/70">2 hours ago</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
 
           {/* API Access */}
           <div className="space-y-8">
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
+            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
               <div className="p-6 border-b bg-muted/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Key className="h-5 w-5 text-primary" />
                     <h2 className="text-lg font-semibold">API Key</h2>
                   </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/settings?tab=security">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage Keys
+                    </Link>
+                  </Button>
                 </div>
               </div>
               <div className="p-6">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="flex-1 font-mono text-sm truncate">
-                    {showApiKey ? demoApiKey : '•'.repeat(20)}
-                  </div>
-                  <Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowApiKey(!showApiKey)}>
-                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                  <Button variant="ghost" size="sm" className="gap-2" onClick={copyApiKey}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-3">
-                  Use this key to authenticate your API requests. Keep it secure and never share it publicly.
-                </p>
+                {isLoading ? (
+                  <Skeleton className="h-12 rounded-lg" />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                      <div className="flex-1 font-mono text-sm truncate">
+                        {apiKey ? (showApiKey ? apiKey : '•'.repeat(40)) : 'No API key generated'}
+                      </div>
+                      {apiKey && (
+                        <>
+                          <Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowApiKey(!showApiKey)}>
+                            {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="gap-2" onClick={copyApiKey}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-3">
+                      Use this key to authenticate your API requests. Keep it secure and never share it publicly.
+                    </p>
+                  </>
+                )}
               </div>
             </Card>
 
             {/* Account Overview */}
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
+            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
               <div className="p-6 border-b bg-muted/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -268,7 +330,7 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="font-medium">Free Plan</p>
-                      <p className="text-sm text-muted-foreground">100 images per month</p>
+                      <p className="text-sm text-muted-foreground">{stats.monthlyQuota} images per month</p>
                     </div>
                     <Button variant="outline" size="sm" className="gap-2" asChild>
                       <Link href="/pricing">

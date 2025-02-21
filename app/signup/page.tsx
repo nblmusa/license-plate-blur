@@ -4,10 +4,60 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Shield, Car, Lock } from "lucide-react"
+import { Shield } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function SignUpPage() {
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setIsLoading(true)
+
+    try {
+      const formData = new FormData(event.currentTarget)
+      
+      // Check if passwords match
+      const password = formData.get('password')
+      const confirmPassword = formData.get('confirmPassword')
+      
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match')
+      }
+
+      const response = await fetch('/auth/sign-up', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to sign up')
+      }
+
+      toast({
+        title: "Success",
+        description: "Please check your email to confirm your account.",
+      })
+
+      router.push('/login')
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex-1 relative overflow-hidden">
       <div className="mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -23,58 +73,69 @@ export default function SignUpPage() {
               </p>
             </div>
 
-            <form className="space-y-4">
+            <form onSubmit={onSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="text-blue-700 dark:text-blue-300">First name</Label>
                   <Input 
-                    id="firstName" 
+                    id="firstName"
+                    name="firstName"
                     required 
                     className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-blue-700 dark:text-blue-300">Last name</Label>
                   <Input 
-                    id="lastName" 
+                    id="lastName"
+                    name="lastName"
                     required 
                     className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-blue-700 dark:text-blue-300">Email</Label>
                 <Input 
-                  id="email" 
+                  id="email"
+                  name="email"
                   type="email" 
                   placeholder="m@example.com" 
                   required 
                   className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-blue-700 dark:text-blue-300">Password</Label>
                 <Input 
-                  id="password" 
+                  id="password"
+                  name="password"
                   type="password" 
                   required 
                   className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-blue-700 dark:text-blue-300">Confirm password</Label>
                 <Input 
-                  id="confirmPassword" 
+                  id="confirmPassword"
+                  name="confirmPassword"
                   type="password" 
                   required 
                   className="border-blue-200/50 dark:border-blue-800/50 focus:border-blue-400 dark:focus:border-blue-600 transition-colors"
+                  disabled={isLoading}
                 />
               </div>
               <Button 
                 type="submit" 
                 className="w-full bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                disabled={isLoading}
               >
-                Create Account
+                {isLoading ? "Creating account..." : "Create Account"}
               </Button>
             </form>
 

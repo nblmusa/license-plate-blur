@@ -1,5 +1,6 @@
 "use client"
 
+import { useSettings } from "@/contexts/settings-context"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,31 +20,241 @@ import {
   Trash2,
   KeyRound,
   AlertCircle,
-  Image as ImageIcon,
+  ImageIcon,
   Upload,
   Download,
   Settings,
   ChevronRight
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import { CustomAlertDialog } from "@/components/alert-dialog"
+import { useDashboard } from "@/hooks/use-dashboard"
 
 export default function SettingsPage() {
+  const [isLoading, setIsLoading] = useState(false)
   const [emailNotifications, setEmailNotifications] = useState({
     newLogin: true,
     usageAlerts: true,
     newsletter: false,
     marketing: false
   })
-
   const [autoProcessing, setAutoProcessing] = useState({
     autoMask: true,
     autoDownload: false,
     saveOriginal: true,
     highQuality: false
   })
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: ''
+  })
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(true)
+  const { toast } = useToast()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') || 'account'
+  
+  const { 
+    apiKey, 
+    generateNewApiKey, 
+    revokeApiKey, 
+    copyApiKey,
+    alertState,
+    closeAlert
+  } = useDashboard()
+
+  useEffect(() => {
+    loadUserProfile()
+  }, [])
+
+  async function loadUserProfile() {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/settings')
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load user settings')
+      }
+
+      setProfile({
+        firstName: data.profile.firstName,
+        lastName: data.profile.lastName,
+        email: data.profile.email,
+        phone: data.profile.phone || ''
+      })
+
+      setEmailNotifications(data.preferences.email_notifications)
+      setAutoProcessing(data.preferences.auto_processing)
+      setUser(data.profile)
+    } catch (error) {
+      console.error('Error loading user profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load user settings",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleProfileUpdate() {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          preferences: {
+            email_notifications: emailNotifications,
+            auto_processing: autoProcessing
+          }
+        })
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update settings')
+      }
+
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      })
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handlePasswordUpdate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    const currentPassword = formData.get('currentPassword') as string
+    const newPassword = formData.get('newPassword') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/settings/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword })
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password')
+      }
+
+      toast({
+        title: "Success",
+        description: "Password updated successfully",
+      })
+      
+      // Clear the form
+      event.currentTarget.reset()
+    } catch (error) {
+      console.error('Error updating password:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update password",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleAccountDeletion() {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/settings/account', {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete account')
+      }
+
+      router.push('/')
+      toast({
+        title: "Success",
+        description: "Your account has been deleted",
+      })
+    } catch (error) {
+      console.error('Error deleting account:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete account",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleGenerateApiKey() {
+    if (isGeneratingKey) return
+    
+    try {
+      setIsGeneratingKey(true)
+      await generateNewApiKey()
+      setShowApiKey(true)
+    } catch (error) {
+      console.error('Error generating API key:', error)
+      toast({
+        title: "Error",
+        description: "Failed to generate API key",
+        variant: "destructive"
+      })
+    } finally {
+      setIsGeneratingKey(false)
+    }
+  }
+
+  async function handleCopyApiKey() {
+    await copyApiKey()
+  }
+
+  async function handleRevokeApiKey() {
+    if (isGeneratingKey) return
+    
+    try {
+      setIsGeneratingKey(true)
+      await revokeApiKey()
+      setShowApiKey(false)
+    } finally {
+      setIsGeneratingKey(false)
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -56,7 +267,7 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="account" className="space-y-6">
+        <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList className="grid grid-cols-4 gap-4 bg-transparent h-auto p-0">
             <TabsTrigger 
               value="account"
@@ -90,41 +301,44 @@ export default function SettingsPage() {
 
           {/* Account Settings */}
           <TabsContent value="account" className="space-y-6">
-            <Card className="p-6">
-              <div className="flex items-center gap-6">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src="/placeholder-avatar.jpg" />
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold mb-2">Profile Picture</h3>
-                  <div className="flex gap-3">
-                    <Button variant="outline" size="sm">Change</Button>
-                    <Button variant="outline" size="sm">Remove</Button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
             <Card className="p-6 space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First name</Label>
-                    <Input id="firstName" defaultValue="John" />
+                    <Input 
+                      id="firstName" 
+                      value={profile.firstName}
+                      onChange={(e) => setProfile(prev => ({ ...prev, firstName: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last name</Label>
-                    <Input id="lastName" defaultValue="Doe" />
+                    <Input 
+                      id="lastName" 
+                      value={profile.lastName}
+                      onChange={(e) => setProfile(prev => ({ ...prev, lastName: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="john@example.com" />
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={profile.email}
+                      disabled
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" />
+                    <Input 
+                      id="phone" 
+                      type="tel" 
+                      value={profile.phone}
+                      onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+1 (555) 000-0000" 
+                    />
                   </div>
                 </div>
               </div>
@@ -142,8 +356,9 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <Switch 
-                      checked={autoProcessing.autoMask}
+                      checked={autoProcessing?.autoMask}
                       onCheckedChange={(checked) => setAutoProcessing(prev => ({ ...prev, autoMask: checked }))}
+                      disabled={isLoading}
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -154,7 +369,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <Switch 
-                      checked={autoProcessing.autoDownload}
+                      checked={autoProcessing?.autoDownload}
                       onCheckedChange={(checked) => setAutoProcessing(prev => ({ ...prev, autoDownload: checked }))}
                     />
                   </div>
@@ -166,7 +381,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <Switch 
-                      checked={autoProcessing.saveOriginal}
+                      checked={autoProcessing?.saveOriginal}
                       onCheckedChange={(checked) => setAutoProcessing(prev => ({ ...prev, saveOriginal: checked }))}
                     />
                   </div>
@@ -178,7 +393,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                     <Switch 
-                      checked={autoProcessing.highQuality}
+                      checked={autoProcessing?.highQuality}
                       onCheckedChange={(checked) => setAutoProcessing(prev => ({ ...prev, highQuality: checked }))}
                     />
                   </div>
@@ -188,8 +403,19 @@ export default function SettingsPage() {
               <Separator />
 
               <div className="flex justify-end gap-3">
-                <Button variant="outline">Cancel</Button>
-                <Button>Save Changes</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => loadUserProfile()}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleProfileUpdate}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
               </div>
             </Card>
 
@@ -203,7 +429,12 @@ export default function SettingsPage() {
                       Permanently delete your account and all data
                     </p>
                   </div>
-                  <Button variant="destructive" size="sm">
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={handleAccountDeletion}
+                    disabled={isLoading}
+                  >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Account
                   </Button>
@@ -225,7 +456,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Switch 
-                    checked={emailNotifications.newLogin}
+                    checked={emailNotifications?.newLogin}
                     onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, newLogin: checked }))}
                   />
                 </div>
@@ -237,7 +468,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Switch 
-                    checked={emailNotifications.usageAlerts}
+                    checked={emailNotifications?.usageAlerts}
                     onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, usageAlerts: checked }))}
                   />
                 </div>
@@ -249,7 +480,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Switch 
-                    checked={emailNotifications.newsletter}
+                    checked={emailNotifications?.newsletter}
                     onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, newsletter: checked }))}
                   />
                 </div>
@@ -261,7 +492,7 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Switch 
-                    checked={emailNotifications.marketing}
+                    checked={emailNotifications?.marketing}
                     onCheckedChange={(checked) => setEmailNotifications(prev => ({ ...prev, marketing: checked }))}
                   />
                 </div>
@@ -274,21 +505,23 @@ export default function SettingsPage() {
             <Card className="p-6 space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Password</h3>
-                <div className="space-y-4">
+                <form onSubmit={handlePasswordUpdate} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="currentPassword">Current password</Label>
-                    <Input id="currentPassword" type="password" />
+                    <Input id="currentPassword" name="currentPassword" type="password" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="newPassword">New password</Label>
-                    <Input id="newPassword" type="password" />
+                    <Input id="newPassword" name="newPassword" type="password" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirmPassword">Confirm new password</Label>
-                    <Input id="confirmPassword" type="password" />
+                    <Input id="confirmPassword" name="confirmPassword" type="password" />
                   </div>
-                  <Button>Update Password</Button>
-                </div>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? "Updating..." : "Update Password"}
+                  </Button>
+                </form>
               </div>
 
               <Separator />
@@ -311,6 +544,87 @@ export default function SettingsPage() {
               <Separator />
 
               <div>
+                <h3 className="text-lg font-semibold mb-4">API Keys</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">API Access</p>
+                      <p className="text-sm text-muted-foreground">
+                        Manage your API keys for programmatic access
+                      </p>
+                    </div>
+                    {!apiKey ? (
+                      <Button
+                        onClick={handleGenerateApiKey}
+                        disabled={isGeneratingKey}
+                      >
+                        <KeyRound className="h-4 w-4 mr-2" />
+                        {isGeneratingKey ? "Generating..." : "Generate Key"}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        onClick={handleRevokeApiKey}
+                        disabled={isGeneratingKey}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {isGeneratingKey ? "Revoking..." : "Revoke Key"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {apiKey && (
+                    <>
+                      <div className="p-4 bg-muted rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <code className="text-sm font-mono break-all">
+                            {showApiKey ? apiKey : '•'.repeat(40)}
+                          </code>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowApiKey(!showApiKey)}
+                              disabled={isGeneratingKey}
+                            >
+                              {showApiKey ? (
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                              ) : (
+                                <KeyRound className="h-4 w-4 mr-2" />
+                              )}
+                              {showApiKey ? "Hide" : "Show"}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleCopyApiKey}
+                              disabled={isGeneratingKey || !showApiKey}
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Example Usage</Label>
+                        <div className="p-4 bg-muted rounded-lg">
+                          <code className="text-sm font-mono break-all">
+                            curl -X POST https://api.plateguard.com/v1/process \<br />
+                            &nbsp;&nbsp;-H "Authorization: Bearer {showApiKey ? apiKey : '•'.repeat(40)}" \<br />
+                            &nbsp;&nbsp;-F "image=@photo.jpg"
+                          </code>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              <div>
                 <h3 className="text-lg font-semibold mb-4">Active Sessions</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -319,9 +633,9 @@ export default function SettingsPage() {
                         <Smartphone className="h-4 w-4 text-primary" />
                       </div>
                       <div>
-                        <p className="font-medium">iPhone 14 Pro - Safari</p>
+                        <p className="font-medium">Current Session</p>
                         <p className="text-sm text-muted-foreground">
-                          Last active: 2 minutes ago
+                          Last active: Just now
                         </p>
                       </div>
                     </div>
@@ -349,14 +663,16 @@ export default function SettingsPage() {
 
                 <div className="space-y-4">
                   {[
-                    { name: "John Doe", email: "john@example.com", role: "Owner" },
-                    { name: "Jane Smith", email: "jane@example.com", role: "Admin" },
-                    { name: "Mike Johnson", email: "mike@example.com", role: "Member" },
+                    { name: user?.user_metadata?.full_name || user?.email, email: user?.email, role: "Owner" }
                   ].map((member, i) => (
                     <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                       <div className="flex items-center gap-4">
                         <Avatar>
-                          <AvatarFallback>{member.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+                          <AvatarFallback>
+                            {member.name 
+                              ? member.name.split(" ").map((n: string) => n[0]).join("")
+                              : member.email?.[0]?.toUpperCase() || "U"}
+                          </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="font-medium">{member.name}</p>
@@ -403,6 +719,16 @@ export default function SettingsPage() {
           </TabsContent>
         </Tabs>
       </div>
+      {alertState && (
+        <CustomAlertDialog
+          isOpen={alertState.isOpen}
+          onClose={closeAlert}
+          onConfirm={alertState.onConfirm}
+          title={alertState.title}
+          description={alertState.description}
+          variant={alertState.variant}
+        />
+      )}
     </div>
   )
 } 

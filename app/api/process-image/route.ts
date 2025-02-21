@@ -1,40 +1,18 @@
 import { NextResponse } from 'next/server'
-import * as tf from '@tensorflow/tfjs-node'
 import sharp, { Blend } from 'sharp'
-import path from 'path'
-import { promises as fs } from 'fs'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { detectAndMaskLicensePlates } from '@/app/lib/image-processing'
 
 export const dynamic = 'force-dynamic'
 
-// Initialize TensorFlow.js
-async function initTF() {
-  // Set backend to CPU since we're in a Node.js environment
-  await tf.setBackend('cpu')
-  await tf.ready()
-}
-
-async function loadModel() {
-  const modelPath = path.join(process.cwd(), 'models', 'license_plate_model', 'model.json')
-  
-  try {
-    // Verify model file exists
-    await fs.access(modelPath)
-    return await tf.loadGraphModel(`file://${modelPath}`)
-  } catch (error) {
-    console.error('Error loading model:', error)
-    throw new Error('Model not found or inaccessible')
-  }
-}
-
-// Function to add watermark for non-authenticated users
 async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
-  const watermarkText = 'PlateGuard.com'
-  
-  // Get original image format and metadata
+  // Get image dimensions
   const metadata = await sharp(imageBuffer).metadata()
-  const { width = 800, height = 600, format = 'jpeg' } = metadata
+  const { width = 800, height = 600, format } = metadata
 
-  // Create SVG text with white color
+  // Create SVG watermark text
+  const watermarkText = 'Sign up to remove watermark'
   const svgText = `
     <svg width="800" height="100">
       <text 
@@ -65,378 +43,251 @@ async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
       top: Math.floor(height / 2 - 50),
       left: Math.floor(width / 2 - 400)
     }])
-    .toFormat(format)
+    .toFormat(format || 'jpeg')
     .toBuffer()
 }
 
-async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buffer, logoSettings?: any, isAuthenticated: boolean = false) {
-  try {
-    tf.engine().startScope()
-
-    // Load and preprocess the image
-    const image = await sharp(imageBuffer)
-    const metadata = await image.metadata()
-    const { 
-      width: originalWidth = 640, 
-      height: originalHeight = 640, 
-      format 
-    } = metadata
-
-    // If logo is provided, preprocess it
-    let processedLogo: Buffer | undefined
-    if (logoBuffer) {
-      try {
-        processedLogo = await sharp(logoBuffer)
-          .trim() // Remove any excess transparent space
-          .toBuffer()
-      } catch (error) {
-        console.error('Error preprocessing logo:', error)
-        processedLogo = undefined
-      }
-    }
-
-    // Calculate aspect ratio to handle padding offset
-    const aspectRatio = originalWidth / originalHeight
-    let resizeWidth = 640
-    let resizeHeight = 640
-    let paddingX = 0
-    let paddingY = 0
-
-    if (aspectRatio > 1) {
-      // Image is wider than tall
-      resizeHeight = Math.round(640 / aspectRatio)
-      paddingY = Math.round((640 - resizeHeight) / 2)
-    } else {
-      // Image is taller than wide
-      resizeWidth = Math.round(640 * aspectRatio)
-      paddingX = Math.round((640 - resizeWidth) / 2)
-    }
-
-    // First resize to 640x640 while maintaining aspect ratio
-    const resizedImage = await image
-      .resize(640, 640, {
-        fit: 'contain',
-        background: { r: 0, g: 0, b: 0, alpha: 1 }
-      })
-      .raw()
-      .toBuffer()
-
-    // Calculate scaling ratios accounting for padding
-    const xRatio = originalWidth / resizeWidth
-    const yRatio = originalHeight / resizeHeight
-
-    // Convert to tensor and normalize
-    const tensor = tf.tensor3d(new Uint8Array(resizedImage), [640, 640, 3])
-    const normalized = tf.tidy(() => tensor.div(255.0).expandDims(0))
-    tf.dispose(tensor)
-
-    // Load model and get predictions
-    const model = await loadModel()
-    const predictions = await model.predict(normalized) as tf.Tensor2D
-    tf.dispose(normalized)
-
-    const transRes = predictions.transpose([0, 2, 1])
-    tf.dispose(predictions)
-
-    // Process predictions to get bounding boxes
-    const boxes = tf.tidy(() => {
-      const w = transRes.slice([0, 0, 2], [-1, -1, 1])
-      const h = transRes.slice([0, 0, 3], [-1, -1, 1])
-      const x1 = tf.sub(transRes.slice([0, 0, 0], [-1, -1, 1]), tf.div(w, 2))
-      const y1 = tf.sub(transRes.slice([0, 0, 1], [-1, -1, 1]), tf.div(h, 2))
-      return tf.concat([y1, x1, tf.add(y1, h), tf.add(x1, w)], 2).squeeze() as tf.Tensor2D
+async function uploadToStorage(
+  supabase: any,
+  buffer: Buffer,
+  path: string
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('processed-images')
+    .upload(path, buffer, {
+      contentType: 'image/jpeg',
+      upsert: true
     })
 
-    // Get confidence scores
-    const [scores, classes] = tf.tidy(() => {
-      const rawScores = transRes.slice([0, 0, 4], [-1, -1, 1])
-        .squeeze()
-        .reshape([-1]) as tf.Tensor1D
-      
-      const processedScores = rawScores.sigmoid()
-      
-      const scoreThreshold = 0.1
-      const filteredScores = tf.where(
-        tf.abs(tf.sub(processedScores, 0.5)).greater(scoreThreshold),
-        processedScores,
-        tf.zeros(processedScores.shape)
-      ) as tf.Tensor1D
-      
-      const classes = tf.zeros([rawScores.shape[0]], 'int32')
-      
-      return [filteredScores, classes]
-    })
+  if (error) throw error
 
-    tf.dispose(transRes)
+  const { data: { publicUrl } } = supabase.storage
+    .from('processed-images')
+    .getPublicUrl(path)
 
-    // Apply non-max suppression
-    const nms = await tf.image.nonMaxSuppressionAsync(
-      boxes,
-      scores,
-      500,  // maxOutputSize
-      0.3,  // iouThreshold
-      0.1   // scoreThreshold
-    )
-
-    const boxes_data = boxes.gather(nms, 0).dataSync()
-    const scores_data = scores.gather(nms, 0).dataSync()
-
-    tf.dispose([boxes, scores, classes, nms])
-
-    // Convert TypedArrays to regular arrays for iteration
-    const boxesArray = Array.from(boxes_data)
-    const scoresArray = Array.from(scores_data)
-
-    // Create composite operations for masking
-    const compositeOperations = await Promise.all(
-      scoresArray.map(async (score, i) => {
-        if (score <= 0.1) return [] // Skip low confidence detections
-
-        let [y1, x1, y2, x2] = boxesArray.slice(i * 4, (i + 1) * 4)
-        
-        // Remove padding offset and scale coordinates back to original image size
-        x1 = Math.round((x1 - paddingX) * xRatio)
-        x2 = Math.round((x2 - paddingX) * xRatio)
-        y1 = Math.round((y1 - paddingY) * yRatio)
-        y2 = Math.round((y2 - paddingY) * yRatio)
-
-        // Ensure coordinates are within image bounds
-        x1 = Math.max(0, Math.min(x1, originalWidth))
-        x2 = Math.max(0, Math.min(x2, originalWidth))
-        y1 = Math.max(0, Math.min(y1, originalHeight))
-        y2 = Math.max(0, Math.min(y2, originalHeight))
-
-        const boxWidth = x2 - x1
-        const boxHeight = y2 - y1
-
-        if (processedLogo) {
-          try {
-            // Get logo dimensions before resizing
-            const logoMetadata = await sharp(processedLogo).metadata()
-            const logoWidth = Math.round(boxWidth * (logoSettings?.size || 100) / 100)
-            const logoHeight = Math.round(boxHeight * (logoSettings?.size || 100) / 100)
-            
-            console.log('Processing license plate:', {
-              plateSize: { width: boxWidth, height: boxHeight },
-              logoSize: { width: logoWidth, height: logoHeight },
-              position: logoSettings?.position || 'center',
-              opacity: logoSettings?.opacity || 100
-            })
-
-            // Resize logo to fit the license plate area while maintaining aspect ratio
-            const resizedLogo = await sharp(processedLogo)
-              .resize(logoWidth, logoHeight, {
-                fit: 'contain',
-                background: { r: 0, g: 0, b: 0, alpha: 0 }
-              })
-              .png()
-              .toBuffer()
-
-            // Calculate position based on logoSettings
-            let left = x1
-            let top = y1
-            
-            switch (logoSettings?.position) {
-              case 'top-left':
-                break
-              case 'top-right':
-                left = x2 - logoWidth
-                break
-              case 'bottom-left':
-                top = y2 - logoHeight
-                break
-              case 'bottom-right':
-                left = x2 - logoWidth
-                top = y2 - logoHeight
-                break
-              case 'center':
-              default:
-                left = x1 + Math.round((boxWidth - logoWidth) / 2)
-                top = y1 + Math.round((boxHeight - logoHeight) / 2)
-                break
-            }
-
-            // Create a white background with the logo composited on top
-            const logoWithBackground = await sharp({
-              create: {
-                width: logoWidth,
-                height: logoHeight,
-                channels: 4,
-                background: { r: 255, g: 255, b: 255, alpha: 1 }
-              }
-            })
-            .png()
-            .composite([{
-              input: resizedLogo,
-              blend: 'over' as Blend
-            }])
-            .png()
-            .toBuffer()
-
-            // Return the composite operation
-            return [{
-              input: logoWithBackground,
-              top: Math.round(top),
-              left: Math.round(left)
-            }]
-          } catch (error) {
-            console.error('Error applying logo to license plate:', error)
-            return await fallbackToBlur()
-          }
-        }
-
-        // Fallback to blur function
-        async function fallbackToBlur() {
-          const extractedRegion = await sharp(imageBuffer)
-            .extract({
-              left: x1,
-              top: y1,
-              width: boxWidth,
-              height: boxHeight
-            })
-            .blur(20)
-            .toBuffer()
-
-          return [{
-            input: extractedRegion,
-            top: y1,
-            left: x1
-          }]
-        }
-
-        // If no logo, use blur
-        return await fallbackToBlur()
-      })
-    )
-
-    // Apply masked regions to the original image
-    let maskedImage = await sharp(imageBuffer)
-      .composite(compositeOperations.flat())
-      .toFormat(format || 'jpeg')
-      .toBuffer()
-
-    // Add watermark for non-authenticated users
-    if (!isAuthenticated) {
-      maskedImage = await addWatermark(maskedImage)
-    }
-
-    console.log('Image processing complete:', {
-      detectedPlates: scores_data.length,
-      maskType: processedLogo ? 'logo' : 'blur',
-      watermarkAdded: !isAuthenticated
-    })
-
-    tf.engine().endScope()
-    return {
-      image: maskedImage,
-      detections: scores_data.length
-    }
-  } catch (error) {
-    tf.engine().endScope()
-    console.error('Error in detectAndMaskLicensePlates:', error)
-    throw error
-  }
-}
-
-function processDetections(predictions: number[][], threshold: number) {
-  const boxes = []
-  for (let i = 0; i < predictions.length; i++) {
-    const confidence = predictions[i][4]
-    if (confidence > threshold) {
-      boxes.push({
-        x: predictions[i][0],
-        y: predictions[i][1],
-        width: predictions[i][2],
-        height: predictions[i][3],
-        confidence
-      })
-    }
-  }
-  return boxes
+  return publicUrl
 }
 
 export async function POST(request: Request) {
   try {
-    // Get the request body
-    const body = await request.json()
-    const { image, logo, filename, contentType, logoSettings, isAuthenticated } = body
+    const supabase = createRouteHandlerClient({ cookies })
+    
+    // Check authentication
+    const { data: { session } } = await supabase.auth.getSession()
+    const isAuthenticated = !!session
 
-    if (!image) {
-      return NextResponse.json(
-        { error: 'No image data provided' },
-        { status: 400 }
-      )
+    let file: File | null = null
+    let logo: File | null = null
+    let logoSettings: string | null = null
+
+    const contentType = request.headers.get('content-type')
+
+    // Try to parse as FormData first
+    if (contentType?.includes('multipart/form-data')) {
+      try {
+        const formData = await request.formData()
+        const entries = Array.from(formData.entries())
+        console.log('FormData entries:', entries.map(([key, value]) => ({
+          key,
+          type: value instanceof File ? 'File' : 'string',
+          fileDetails: value instanceof File ? {
+            name: value.name,
+            type: value.type,
+            size: value.size
+          } : null
+        })))
+        
+        file = formData.get('file') as File
+        logo = formData.get('logo') as File | null
+        logoSettings = formData.get('logoSettings') as string | null
+      } catch (error) {
+        console.error('FormData parsing error:', error)
+        return NextResponse.json({
+          error: 'Failed to parse form data',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 400 })
+      }
+    } 
+    // Try JSON if not FormData
+    else if (contentType?.includes('application/json')) {
+      try {
+        const body = await request.json()
+        
+        if (body.image) {
+          const base64Data = body.image.split(',')[1] || body.image // Handle both with and without data URL prefix
+          const binaryData = Buffer.from(base64Data, 'base64')
+          const filename = body.filename || 'image.jpg'
+          file = new File([binaryData], filename, { type: 'image/jpeg' })
+        }
+        
+        if (body.logo) {
+          const logoBase64 = body.logo.split(',')[1] || body.logo
+          logo = new File([Buffer.from(logoBase64, 'base64')], 'logo.png', { type: 'image/png' })
+        }
+        
+        // Handle processing options
+        if (body.processingOptions) {
+          logoSettings = JSON.stringify(body.processingOptions)
+        }
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError)
+        return NextResponse.json({
+          error: 'Failed to parse JSON body',
+          details: jsonError instanceof Error ? jsonError.message : 'Unknown error'
+        }, { status: 400 })
+      }
+    } else {
+      console.error('Unsupported content type:', contentType)
+      return NextResponse.json({
+        error: 'Unsupported content type',
+        expected: 'multipart/form-data or application/json',
+        received: contentType
+      }, { status: 400 })
     }
 
-    console.log('Processing request:', {
-      hasImage: !!image,
-      hasLogo: !!logo,
-      settings: logoSettings,
-      isAuthenticated,
-      contentType
+    if (!file) {
+      console.error('No file found in request')
+      return NextResponse.json({
+        error: 'No file provided or invalid format',
+        contentType,
+        isFormData: contentType?.includes('multipart/form-data'),
+        isJson: contentType?.includes('application/json')
+      }, { status: 400 })
+    }
+
+    // Convert File to Buffer
+    const buffer = Buffer.from(await file.arrayBuffer())
+
+    // Convert logo to Buffer if provided
+    let logoBuffer: Buffer | undefined
+    let parsedLogoSettings: any | undefined
+
+    if (logo) {
+      const logoArrayBuffer = await logo.arrayBuffer()
+      logoBuffer = Buffer.from(logoArrayBuffer)
+    }
+
+    if (logoSettings) {
+      try {
+        parsedLogoSettings = JSON.parse(logoSettings)
+      } catch (error) {
+        console.error('Error parsing logo settings:', error)
+      }
+    }
+
+    // Process the image
+    console.log('Starting image processing with buffer size:', buffer.length)
+    const result = await detectAndMaskLicensePlates(
+      buffer,
+      logoBuffer,
+      parsedLogoSettings,
+      isAuthenticated
+    )
+    console.log('Processing result:', {
+      hasProcessedImage: !!result.processedImage,
+      processedImageSize: result.processedImage?.length,
+      detectedPlates: result.detectedPlates,
+      hasError: !!result.error,
+      error: result.error?.message
     })
 
-    // Validate the image data
-    if (!image.match(/^[A-Za-z0-9+/=]+$/)) {
-      return NextResponse.json(
-        { error: 'Invalid image data format' },
-        { status: 400 }
-      )
+    let processedImage = result.processedImage
+
+    // Add watermark for non-authenticated users
+    if (!isAuthenticated) {
+      console.log('Adding watermark for non-authenticated user')
+      processedImage = await addWatermark(processedImage)
     }
 
-    try {
-      // Convert base64 to buffer
-      const buffer = Buffer.from(image, 'base64')
-      let logoBuffer: Buffer | undefined
+    // Upload processed image and thumbnail if authenticated
+    let processedImageUrl: string | null = null
+    let thumbnailUrl: string | null = null
 
-      // Validate image format using Sharp
-      const imageInfo = await sharp(buffer).metadata()
-      if (!imageInfo.format) {
-        return NextResponse.json(
-          { error: 'Unsupported image format' },
-          { status: 400 }
+    if (isAuthenticated && session) {
+      console.log('User is authenticated, uploading to storage')
+      const userId = session.user.id
+      const timestamp = Date.now()
+      const filename = file.name.replace(/\.[^/.]+$/, '')
+      
+      try {
+        // Upload processed image
+        processedImageUrl = await uploadToStorage(
+          supabase,
+          processedImage,
+          `${userId}/${timestamp}_${filename}_processed.jpg`
         )
-      }
-      
-      if (logo && typeof logo === 'string' && logo.match(/^[A-Za-z0-9+/=]+$/)) {
-        logoBuffer = Buffer.from(logo, 'base64')
-      }
+        console.log('Processed image uploaded successfully:', processedImageUrl)
 
-      // Process the image using the TensorFlow model
-      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer, logoBuffer, logoSettings, isAuthenticated)
-      
-      // Convert processed image back to base64
-      const processedImageBase64 = `data:${contentType};base64,${processedBuffer.toString('base64')}`
+        // Upload thumbnail
+        thumbnailUrl = await uploadToStorage(
+          supabase,
+          result.thumbnail,
+          `${userId}/${timestamp}_${filename}_thumb.jpg`
+        )
+        console.log('Thumbnail uploaded successfully:', thumbnailUrl)
 
-      // Return the processed image
-      return NextResponse.json({
-        success: true,
-        maskedImage: processedImageBase64,
-        metadata: {
-          filename,
-          contentType,
-          format: imageInfo.format,
-          processedAt: new Date().toISOString(),
-          licensePlatesDetected: detections,
-          originalSize: buffer.length,
-          processedSize: processedBuffer.length,
-          maskType: logoBuffer ? 'logo' : 'blur',
-          watermarkAdded: !isAuthenticated
+        // Record the processed image in the database
+        const { error: dbError } = await supabase
+          .from('processed_images')
+          .insert([{
+            user_id: userId,
+            filename: file.name,
+            license_plates_detected: result.detectedPlates,
+            processed_url: processedImageUrl,
+            thumbnail_url: thumbnailUrl,
+            metadata: {
+              originalSize: buffer.length,
+              processedSize: processedImage.length,
+              logoApplied: !!logoBuffer
+            }
+          }])
+
+        if (dbError) {
+          console.error('Database insert error:', dbError)
+          throw dbError
         }
-      })
 
-    } catch (error) {
-      console.error('Error processing image:', error)
-      return NextResponse.json(
-        { error: 'Failed to process image data' },
-        { status: 500 }
-      )
+        // Update user stats
+        const { error: statsError } = await supabase.rpc(
+          'update_user_stats',
+          { 
+            p_user_id: userId,
+            p_plates_detected: result.detectedPlates
+          }
+        )
+
+        if (statsError) {
+          console.error('Stats update error:', statsError)
+          throw statsError
+        }
+      } catch (uploadError) {
+        console.error('Upload/database error:', uploadError)
+        throw uploadError
+      }
     }
 
+    // Convert Buffer to base64 string for response
+    console.log('Converting processed image to base64, size:', processedImage.length)
+    const imageContentType = file.type || 'image/jpeg'
+    const base64Image = `data:${imageContentType};base64,${processedImage.toString('base64')}`
+
+    return NextResponse.json({
+      success: true,
+      maskedImage: base64Image,
+      metadata: {
+        licensePlatesDetected: result.detectedPlates,
+        originalSize: buffer.length,
+        processedSize: processedImage.length,
+        logoApplied: !!logoBuffer,
+        contentType: imageContentType
+      },
+      processedImageUrl,
+      thumbnailUrl
+    })
   } catch (error) {
-    console.error('Error in API route:', error)
+    console.error('Processing error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to process image' },
       { status: 500 }
     )
   }

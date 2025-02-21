@@ -275,7 +275,7 @@ export default function UploadPage() {
       return
     }
 
-    const reader = new FileReader()
+      const reader = new FileReader()
     reader.onload = (e) => {
       const result = e.target?.result
       if (typeof result === 'string') {
@@ -589,27 +589,27 @@ export default function UploadPage() {
                   </div>
                 </div>
                 <div className="p-4">
-                  <div
-                    {...getRootProps()}
+            <div
+              {...getRootProps()}
                     className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ease-in-out
                       ${isDragActive ? 'border-primary bg-primary/5 scale-[0.98] shadow-inner' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
                     title="Upload Files (Ctrl/Cmd + U)"
-                  >
-                    <input {...getInputProps()} />
+            >
+              <input {...getInputProps()} />
                     <div className={`transition-transform duration-300 ${isDragActive ? 'scale-105' : ''}`}>
                       <div className={`mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center
                         ${isDragActive ? 'animate-bounce' : 'animate-pulse'}`}>
                         <Upload className="h-6 w-6 text-primary" />
                       </div>
-                      {isDragActive ? (
+              {isDragActive ? (
                         <div className="space-y-2">
                           <p className="text-primary font-medium animate-pulse">Release to upload files</p>
                           <p className="text-sm text-primary/80">Your files will be processed automatically</p>
                         </div>
-                      ) : (
+              ) : (
                         <div className="space-y-2">
                           <p className="font-medium">Drag & drop an image here</p>
-                          <p className="text-sm text-muted-foreground">or click to select a file</p>
+                  <p className="text-sm text-muted-foreground">or click to select a file</p>
                           <p className="text-xs text-muted-foreground mt-4">
                             Supported formats: JPEG, PNG, WebP • Max size: 10MB
                           </p>
@@ -742,10 +742,10 @@ export default function UploadPage() {
                           PNG or WebP with transparency • Max size: 2MB
                         </p>
                       </div>
-                    </div>
-                  )}
                 </div>
-              </Card>
+              )}
+            </div>
+          </Card>
 
               {/* Processing Options in an accordion */}
               <Card className="overflow-hidden transition-shadow hover:shadow-md">
@@ -918,7 +918,7 @@ export default function UploadPage() {
             <div className="lg:col-span-7 space-y-6">
               {/* Preview Area with improved layout */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {image && (
+          {image && (
                   <Card className="overflow-hidden transition-shadow hover:shadow-md">
                     <div className="p-4 border-b bg-muted/50">
                       <div className="flex items-center gap-2">
@@ -927,18 +927,18 @@ export default function UploadPage() {
                       </div>
                     </div>
                     <div className="relative aspect-[4/3] bg-muted/50">
-                      <Image
-                        src={image}
-                        alt="Original"
-                        fill
+                <Image
+                  src={image}
+                  alt="Original"
+                  fill
                         className="object-contain p-4"
                         priority
-                      />
-                    </div>
-                  </Card>
-                )}
+                />
+              </div>
+            </Card>
+          )}
 
-                {maskedImage ? (
+          {maskedImage ? (
                   <Card className="overflow-hidden transition-shadow hover:shadow-md group">
                     <div className="p-4 border-b bg-muted/50">
                       <div className="flex items-center justify-between">
@@ -962,10 +962,10 @@ export default function UploadPage() {
                     </div>
                     <div className="relative aspect-[4/3] bg-muted/50 group/image">
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover/image:opacity-100 transition-opacity" />
-                      <Image
-                        src={maskedImage}
-                        alt="Masked"
-                        fill
+                <Image
+                  src={maskedImage}
+                  alt="Masked"
+                  fill
                         className="object-contain p-4"
                         priority
                       />
@@ -977,11 +977,11 @@ export default function UploadPage() {
                         >
                           <Download className="h-4 w-4" />
                           Download
-                        </Button>
+                </Button>
                       </div>
-                    </div>
-                  </Card>
-                ) : image ? (
+              </div>
+            </Card>
+          ) : image ? (
                   <Card className="overflow-hidden transition-shadow hover:shadow-md">
                     <div className="p-12">
                       <div className="text-center space-y-6">
@@ -1015,8 +1015,8 @@ export default function UploadPage() {
                           </>
                         )}
                       </div>
-                    </div>
-                  </Card>
+              </div>
+            </Card>
                 ) : null}
               </div>
 
@@ -1222,9 +1222,9 @@ export default function UploadPage() {
                         <Link href="/login">Sign In</Link>
                       </Button>
                     </div>
-                  </div>
-                </Card>
-              )}
+              </div>
+            </Card>
+          )}
             </div>
           </div>
         </div>
