@@ -2,11 +2,177 @@
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Check, Car, Shield, Gauge, Lock, Sparkles, ImageIcon, Zap, Users } from "lucide-react"
+import { Check, Car, Shield, Gauge, Lock, Sparkles, ImageIcon, Zap, Users, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { PLANS } from "@/lib/stripe"
+import { useEffect, useState } from "react"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+
+interface Subscription {
+  id: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+}
+
+interface SubscriptionData {
+  plan: typeof PLANS[keyof typeof PLANS];
+  subscription: Subscription | null;
+}
 
 export default function PricingPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [subscriptionData, setSubscriptionData] = useState<SubscriptionData | null>(null);
+  const supabase = createClientComponentClient();
+  const { toast } = useToast();
+  const router = useRouter();
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  async function checkUser() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        const response = await fetch('/api/billing/subscription');
+        if (!response.ok) throw new Error('Failed to fetch subscription');
+        const data = await response.json();
+        setSubscriptionData(data);
+      }
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load subscription data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleUpgrade(planId: string) {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+
+      // Redirect to checkout
+      router.push(data.url);
+    } catch (error) {
+      console.error('Upgrade error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start upgrade process",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function getPlanAction(planKey: string, plan: typeof PLANS[keyof typeof PLANS]) {
+    if (isLoading) {
+      return (
+        <Button disabled className="w-full">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Loading...
+        </Button>
+      );
+    }
+
+    // Not logged in - direct to signup
+    if (!user) {
+      return (
+        <Button 
+          className={`w-full group ${
+            planKey === 'PRO' 
+              ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl' 
+              : planKey === 'ENTERPRISE' 
+              ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-lg hover:shadow-xl'
+              : 'border-blue-200/50 dark:border-blue-800/50'
+          }`}
+          variant={planKey === 'BASIC' ? 'outline' : 'default'}
+          asChild
+        >
+          <Link href="/signup" className="flex items-center justify-center">
+            Get Started
+            <Zap className="ml-2 h-4 w-4 transition-transform group-hover:scale-110" />
+          </Link>
+        </Button>
+      );
+    }
+
+    // Current plan
+    if (subscriptionData?.plan.id === plan.id.toLowerCase()) {
+      return (
+        <Button disabled className="w-full">
+          Current Plan
+        </Button>
+      );
+    }
+
+    // Free plan can't downgrade
+    if (subscriptionData?.plan.id === 'free' && plan.id === 'free') {
+      return (
+        <Button disabled className="w-full">
+          Current Plan
+        </Button>
+      );
+    }
+
+    // Enterprise plan - contact sales
+    if (planKey === 'ENTERPRISE') {
+      return (
+        <Button 
+          className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800"
+          asChild
+        >
+          <Link href="/contact">Contact Sales</Link>
+        </Button>
+      );
+    }
+
+    // Upgrade button
+    return (
+      <Button
+        className={`w-full group ${
+          planKey === 'PRO' 
+            ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl' 
+            : 'border-blue-200/50 dark:border-blue-800/50'
+        }`}
+        variant={planKey === 'BASIC' ? 'outline' : 'default'}
+        onClick={() => handleUpgrade(plan.id)}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            Upgrade
+            <Zap className="ml-2 h-4 w-4 transition-transform group-hover:scale-110" />
+          </>
+        )}
+      </Button>
+    );
+  }
+
   return (
     <div className="flex-1 relative overflow-hidden">
       {/* Enhanced Background Pattern */}
@@ -33,23 +199,31 @@ export default function PricingPage() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/5 via-blue-400/5 to-indigo-500/5 px-6 py-3 rounded-full mb-6">
               <Car className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span className="font-medium text-blue-700 dark:text-blue-300">Choose Your Plan</span>
+              <span className="font-medium text-blue-700 dark:text-blue-300">
+                {user ? 'Upgrade Your Plan' : 'Choose Your Plan'}
+              </span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 dark:from-blue-400 dark:via-blue-300 dark:to-blue-200">
               Simple, Transparent Pricing
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Choose the plan that best fits your needs. All plans include our advanced license plate detection and masking technology.
+              {user 
+                ? subscriptionData?.subscription
+                  ? `You're currently on the ${subscriptionData.plan.name} plan. ${subscriptionData.subscription.cancelAtPeriodEnd ? 'Your plan will be cancelled at the end of the billing period.' : ''}`
+                  : 'Choose a plan to get started with our advanced license plate detection and masking technology.'
+                : 'Choose the plan that best fits your needs. All plans include our advanced license plate detection and masking technology.'
+              }
             </p>
           </div>
 
           {/* Enhanced Pricing Cards */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-start mb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 lg:gap-6 items-start mb-16">
             {Object.entries(PLANS).map(([key, plan]) => (
               <Card 
                 key={key} 
                 className={`group flex flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl
-                  ${key === 'PRO' ? 'border-primary/50 shadow-lg relative bg-gradient-to-br from-blue-50/50 via-white to-blue-50/30 dark:from-blue-900/50 dark:via-gray-900 dark:to-blue-900/30' : 'bg-background/60 backdrop-blur-sm'}`}
+                  ${key === 'PRO' ? 'border-primary/50 shadow-lg relative bg-gradient-to-br from-blue-50/50 via-white to-blue-50/30 dark:from-blue-900/50 dark:via-gray-900 dark:to-blue-900/30' : 'bg-background/60 backdrop-blur-sm'}
+                  ${subscriptionData?.plan.id === plan.id.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
               >
                 {key === 'PRO' && (
                   <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-1 rounded-full">
@@ -59,6 +233,11 @@ export default function PricingPage() {
                     </div>
                   </div>
                 )}
+                {subscriptionData?.plan.id === plan.id.toLowerCase() && (
+                  <div className="absolute top-2 right-2 bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
+                    Current Plan
+                  </div>
+                )}
                 <div className="p-6 sm:p-8 flex flex-col h-full space-y-6">
                   <div>
                     <h3 className="text-2xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 dark:from-blue-400 dark:to-indigo-400">{plan.name}</h3>
@@ -66,22 +245,7 @@ export default function PricingPage() {
                       <span className="text-4xl font-bold">${plan.price}</span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
-                    <Button 
-                      className={`w-full group ${
-                        key === 'PRO' 
-                          ? 'bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl' 
-                          : key === 'ENTERPRISE' 
-                          ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-lg hover:shadow-xl'
-                          : 'border-blue-200/50 dark:border-blue-800/50'
-                      }`}
-                      variant={key === 'BASIC' ? 'outline' : 'default'}
-                      asChild
-                    >
-                      <Link href="/signup" className="flex items-center justify-center">
-                        Get Started
-                        <Zap className="ml-2 h-4 w-4 transition-transform group-hover:scale-110" />
-                      </Link>
-                    </Button>
+                    {getPlanAction(key, plan)}
                   </div>
                   <div className="space-y-4 flex-1">
                     {plan.features.map((feature, index) => (
