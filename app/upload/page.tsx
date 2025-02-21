@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings, Keyboard, History } from "lucide-react"
+import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings, Keyboard, History, Lock } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function UploadPage() {
   const [image, setImage] = useState<string | null>(null)
@@ -29,6 +30,7 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [useLogo, setUseLogo] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [logoSettings, setLogoSettings] = useState({
     position: 'center',
     size: 100,
@@ -65,6 +67,27 @@ export default function UploadPage() {
     detections: number;
   }>>([])
 
+  // Check authentication status
+  useEffect(() => {
+    const supabase = createClientComponentClient()
+    
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setIsAuthenticated(!!session)
+    }
+
+    checkAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  // Modified processBatchQueue to include watermark for non-authenticated users
   const processBatchQueue = useCallback(async () => {
     if (isBatchProcessing || batchQueue.length === 0) return
 
@@ -106,6 +129,7 @@ export default function UploadPage() {
           filename: item.file.name,
           contentType: contentType,
           processingOptions,
+          isAuthenticated, // Pass authentication status to backend
         }
 
         if (useLogo && logo) {
@@ -163,7 +187,7 @@ export default function UploadPage() {
 
         toast({
           title: `Processed ${item.file.name}`,
-          description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully.`,
+          description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully.${!isAuthenticated ? ' (Free Version - Watermark Added)' : ''}`,
         })
       } catch (error) {
         // Update item as error
@@ -185,7 +209,7 @@ export default function UploadPage() {
     }
 
     setIsBatchProcessing(false)
-  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast])
+  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast, isAuthenticated])
 
   // Start processing when queue changes
   useEffect(() => {
@@ -1181,6 +1205,26 @@ export default function UploadPage() {
                   </div>
                 </div>
               </Card>
+
+              {/* Login Prompt for non-authenticated users */}
+              {!isAuthenticated && (
+                <Card className="p-6 mb-6 bg-primary/5 border-primary/20">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-primary/10 rounded-lg">
+                      <Lock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">Free Version - Watermark Applied</h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Sign in to remove watermarks and access premium features.
+                      </p>
+                      <Button asChild variant="outline" size="sm">
+                        <Link href="/login">Sign In</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
           </div>
         </div>

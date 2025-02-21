@@ -26,7 +26,50 @@ async function loadModel() {
   }
 }
 
-async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buffer, logoSettings?: any) {
+// Function to add watermark for non-authenticated users
+async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
+  const watermarkText = 'PlateGuard.com'
+  
+  // Get original image format and metadata
+  const metadata = await sharp(imageBuffer).metadata()
+  const { width = 800, height = 600, format = 'jpeg' } = metadata
+
+  // Create SVG text with white color
+  const svgText = `
+    <svg width="800" height="100">
+      <text 
+        x="50%" 
+        y="50%" 
+        font-family="Arial" 
+        font-size="48" 
+        fill="white" 
+        text-anchor="middle" 
+        dominant-baseline="middle"
+        opacity="0.5"
+      >
+        ${watermarkText}
+      </text>
+    </svg>
+  `
+
+  // Create watermark from SVG
+  const watermark = await sharp(Buffer.from(svgText))
+    .png()
+    .toBuffer()
+
+  // Add watermark diagonally across the image
+  return await sharp(imageBuffer)
+    .composite([{
+      input: watermark,
+      blend: 'over' as Blend,
+      top: Math.floor(height / 2 - 50),
+      left: Math.floor(width / 2 - 400)
+    }])
+    .toFormat(format)
+    .toBuffer()
+}
+
+async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buffer, logoSettings?: any, isAuthenticated: boolean = false) {
   try {
     tf.engine().startScope()
 
@@ -267,14 +310,20 @@ async function detectAndMaskLicensePlates(imageBuffer: Buffer, logoBuffer?: Buff
     )
 
     // Apply masked regions to the original image
-    const maskedImage = await sharp(imageBuffer)
+    let maskedImage = await sharp(imageBuffer)
       .composite(compositeOperations.flat())
       .toFormat(format || 'jpeg')
       .toBuffer()
 
+    // Add watermark for non-authenticated users
+    if (!isAuthenticated) {
+      maskedImage = await addWatermark(maskedImage)
+    }
+
     console.log('Image processing complete:', {
       detectedPlates: scores_data.length,
-      maskType: processedLogo ? 'logo' : 'blur'
+      maskType: processedLogo ? 'logo' : 'blur',
+      watermarkAdded: !isAuthenticated
     })
 
     tf.engine().endScope()
@@ -310,7 +359,7 @@ export async function POST(request: Request) {
   try {
     // Get the request body
     const body = await request.json()
-    const { image, logo, filename, contentType, logoSettings } = body
+    const { image, logo, filename, contentType, logoSettings, isAuthenticated } = body
 
     if (!image) {
       return NextResponse.json(
@@ -322,7 +371,9 @@ export async function POST(request: Request) {
     console.log('Processing request:', {
       hasImage: !!image,
       hasLogo: !!logo,
-      settings: logoSettings
+      settings: logoSettings,
+      isAuthenticated,
+      contentType
     })
 
     // Validate the image data
@@ -337,13 +388,22 @@ export async function POST(request: Request) {
       // Convert base64 to buffer
       const buffer = Buffer.from(image, 'base64')
       let logoBuffer: Buffer | undefined
+
+      // Validate image format using Sharp
+      const imageInfo = await sharp(buffer).metadata()
+      if (!imageInfo.format) {
+        return NextResponse.json(
+          { error: 'Unsupported image format' },
+          { status: 400 }
+        )
+      }
       
       if (logo && typeof logo === 'string' && logo.match(/^[A-Za-z0-9+/=]+$/)) {
         logoBuffer = Buffer.from(logo, 'base64')
       }
 
       // Process the image using the TensorFlow model
-      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer, logoBuffer, logoSettings)
+      const { image: processedBuffer, detections } = await detectAndMaskLicensePlates(buffer, logoBuffer, logoSettings, isAuthenticated)
       
       // Convert processed image back to base64
       const processedImageBase64 = `data:${contentType};base64,${processedBuffer.toString('base64')}`
@@ -355,11 +415,13 @@ export async function POST(request: Request) {
         metadata: {
           filename,
           contentType,
+          format: imageInfo.format,
           processedAt: new Date().toISOString(),
           licensePlatesDetected: detections,
           originalSize: buffer.length,
           processedSize: processedBuffer.length,
-          maskType: logoBuffer ? 'logo' : 'blur'
+          maskType: logoBuffer ? 'logo' : 'blur',
+          watermarkAdded: !isAuthenticated
         }
       })
 
