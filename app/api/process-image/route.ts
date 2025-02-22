@@ -199,6 +199,15 @@ export async function POST(request: Request) {
       processedImage = await addWatermark(processedImage)
     }
 
+    // Create thumbnail from the processed image
+    console.log('Creating thumbnail from processed image')
+    const thumbnail = await sharp(processedImage)
+      .resize(320, 240, { 
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 }
+      })
+      .toBuffer()
+
     // Upload processed image and thumbnail if authenticated
     let processedImageUrl: string | null = null
     let thumbnailUrl: string | null = null
@@ -218,10 +227,10 @@ export async function POST(request: Request) {
         )
         console.log('Processed image uploaded successfully:', processedImageUrl)
 
-        // Upload thumbnail
+        // Upload thumbnail of the processed image
         thumbnailUrl = await uploadToStorage(
           supabase,
-          result.thumbnail,
+          thumbnail,
           `${userId}/${timestamp}_${filename}_thumb.jpg`
         )
         console.log('Thumbnail uploaded successfully:', thumbnailUrl)

@@ -75,7 +75,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 rounded-full bg-primary/5">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 rounded-full bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5">
               <Car className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-primary">Welcome back{user?.email ? `, ${user.email.split('@')[0]}!` : '!'}</span>
             </div>
@@ -89,7 +89,7 @@ export default function DashboardPage() {
               <Loader2 className="h-4 w-4" />
               Refresh
             </Button>
-            <Button size="sm" className="gap-2" asChild>
+            <Button size="sm" className="gap-2 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700" asChild>
               <Link href="/upload">
                 <Upload className="h-4 w-4" />
                 Upload Image
@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
         {/* Stats Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
             {isLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-4 w-24" />
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
             {isLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-4 w-24" />
@@ -163,7 +163,7 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
             {isLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-4 w-24" />
@@ -189,7 +189,7 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+          <Card className="p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
             {isLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-4 w-24" />
@@ -221,8 +221,8 @@ export default function DashboardPage() {
         {/* Main Content Grid */}
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Recent Activity */}
-          <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
-            <div className="p-6 border-b bg-muted/50">
+          <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
+            <div className="p-6 border-b border-blue-100/30 dark:border-blue-800/30 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/50 dark:to-indigo-900/50">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Car className="h-5 w-5 text-primary" />
@@ -246,12 +246,20 @@ export default function DashboardPage() {
                   {recentActivity.map((item) => (
                     <div key={item.id} className="aspect-square rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer relative group overflow-hidden">
                       {item.thumbnailUrl ? (
-                        <Image
-                          src={item.thumbnailUrl}
-                          alt={item.filename}
-                          fill
-                          className="object-cover"
-                        />
+                        <>
+                          <Image
+                            src={item.processedUrl || item.thumbnailUrl}
+                            alt={item.filename}
+                            fill
+                            className="object-cover group-hover:opacity-0 transition-opacity"
+                          />
+                          <Image
+                            src={item.thumbnailUrl}
+                            alt={`Original ${item.filename}`}
+                            fill
+                            className="object-cover opacity-0 group-hover:opacity-100 transition-opacity"
+                          />
+                        </>
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
@@ -272,8 +280,8 @@ export default function DashboardPage() {
 
           {/* API Access */}
           <div className="space-y-8">
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
-              <div className="p-6 border-b bg-muted/50">
+            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
+              <div className="p-6 border-b border-blue-100/30 dark:border-blue-800/30 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/50 dark:to-indigo-900/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Key className="h-5 w-5 text-primary" />
@@ -316,8 +324,8 @@ export default function DashboardPage() {
             </Card>
 
             {/* Account Overview */}
-            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300">
-              <div className="p-6 border-b bg-muted/50">
+            <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">
+              <div className="p-6 border-b border-blue-100/30 dark:border-blue-800/30 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/50 dark:to-indigo-900/50">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Shield className="h-5 w-5 text-primary" />
@@ -336,6 +344,20 @@ export default function DashboardPage() {
                       <Link href="/pricing">
                         <Sparkles className="h-4 w-4" />
                         Upgrade
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-medium">Billing & Usage</p>
+                      <p className="text-sm text-muted-foreground">View invoices and manage subscription</p>
+                    </div>
+                    <Button variant="outline" size="sm" className="gap-2" asChild>
+                      <Link href="/billing">
+                        <CreditCard className="h-4 w-4" />
+                        View Billing
                       </Link>
                     </Button>
                   </div>

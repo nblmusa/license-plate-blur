@@ -469,37 +469,39 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <Tabs defaultValue={defaultTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 gap-4 bg-transparent h-auto p-0">
-            <TabsTrigger 
-              value="account"
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary flex items-center gap-2 h-auto p-3"
-            >
-              <User className="h-4 w-4" />
-              Account
-            </TabsTrigger>
-            <TabsTrigger 
-              value="notifications" 
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary flex items-center gap-2 h-auto p-3"
-            >
-              <Bell className="h-4 w-4" />
-              Notifications
-            </TabsTrigger>
-            <TabsTrigger 
-              value="security" 
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary flex items-center gap-2 h-auto p-3"
-            >
-              <Shield className="h-4 w-4" />
-              Security
-            </TabsTrigger>
-            <TabsTrigger 
-              value="team" 
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary flex items-center gap-2 h-auto p-3"
-            >
-              <Users className="h-4 w-4" />
-              Team
-            </TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue={defaultTab} className="relative space-y-6">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4">
+            <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-lg bg-muted p-1 h-auto">
+              <TabsTrigger 
+                value="account"
+                className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex items-center gap-2 h-auto py-2.5 px-3 transition-all duration-200"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Account</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="notifications" 
+                className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex items-center gap-2 h-auto py-2.5 px-3 transition-all duration-200"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="hidden sm:inline">Notifications</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="security" 
+                className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex items-center gap-2 h-auto py-2.5 px-3 transition-all duration-200"
+              >
+                <Shield className="h-4 w-4" />
+                <span className="hidden sm:inline">Security</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="team" 
+                className="data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm flex items-center gap-2 h-auto py-2.5 px-3 transition-all duration-200"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Team</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Account Settings */}
           <TabsContent value="account" className="space-y-6">

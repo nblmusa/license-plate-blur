@@ -14,6 +14,7 @@ export interface RecentActivity {
   processedAt: string
   licensePlatesDetected: number
   thumbnailUrl: string
+  processedUrl: string
 }
 
 interface ProcessedImage {
@@ -22,6 +23,7 @@ interface ProcessedImage {
   processed_at: string
   license_plates_detected: number
   thumbnail_url: string
+  processed_url: string
 }
 
 interface User {
@@ -127,7 +129,8 @@ export function useDashboard() {
         filename: item.filename,
         processedAt: item.processed_at,
         licensePlatesDetected: item.license_plates_detected,
-        thumbnailUrl: item.thumbnail_url
+        thumbnailUrl: item.thumbnail_url,
+        processedUrl: item.processed_url
       })))
 
       if (data.apiKey) {

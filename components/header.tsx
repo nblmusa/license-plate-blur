@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
-import { Shield, Menu, User, Settings, LogOut, ChevronDown } from "lucide-react"
+import { Shield, Menu, User, Settings, LogOut, ChevronDown, CreditCard } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
@@ -61,9 +61,11 @@ export default function Header() {
   }
 
   const navigation = [
-    { name: 'Pricing', href: '/pricing' },
+    ...(!user ? [{ name: 'Pricing', href: '/pricing' }] : []),
     { name: 'API Docs', href: '/docs' },
-    ...(user ? [{ name: 'Dashboard', href: '/dashboard' }] : []),
+    ...(user ? [
+      { name: 'Dashboard', href: '/dashboard' }
+    ] : []),
   ]
 
   return (
@@ -119,6 +121,12 @@ export default function Header() {
                         <Link href="/dashboard" className="cursor-pointer">
                           <User className="mr-2 h-4 w-4" />
                           Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/billing" className="cursor-pointer">
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Billing
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
