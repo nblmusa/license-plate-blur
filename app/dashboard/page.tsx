@@ -49,6 +49,80 @@ export default function DashboardPage() {
     refreshData
   } = useDashboard()
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center space-x-4 mb-8">
+            <Skeleton className="h-12 w-12 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[250px]" />
+              <Skeleton className="h-3 w-[200px]" />
+            </div>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-6">
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-1 w-full" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            <Card>
+              <div className="p-6 border-b">
+                <Skeleton className="h-6 w-32" />
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <Skeleton key={i} className="aspect-square rounded-lg" />
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            <div className="space-y-8">
+              <Card>
+                <div className="p-6 border-b">
+                  <Skeleton className="h-6 w-32" />
+                </div>
+                <div className="p-6">
+                  <Skeleton className="h-12 rounded-lg" />
+                </div>
+              </Card>
+
+              <Card>
+                <div className="p-6 border-b">
+                  <Skeleton className="h-6 w-32" />
+                </div>
+                <div className="divide-y">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-6">
+                      <div className="flex justify-between items-center">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                        <Skeleton className="h-8 w-24" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -75,10 +149,6 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 rounded-full bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5">
-              <Car className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Welcome back{user?.email ? `, ${user.email.split('@')[0]}!` : '!'}</span>
-            </div>
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 dark:from-blue-400 dark:via-blue-300 dark:to-blue-200">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Manage your license plate masking and view your usage

@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button"
 import { ModeToggle } from "@/components/mode-toggle"
 import { Shield, Menu, User, Settings, LogOut, ChevronDown, CreditCard } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import {
   DropdownMenu,
@@ -28,23 +27,42 @@ export default function Header() {
   const { toast } = useToast()
 
   useEffect(() => {
-    checkUser()
-  }, [])
-
-  async function checkUser() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
-    } catch (error) {
-      console.error('Error checking auth status:', error)
-    } finally {
-      setIsLoading(false)
+    const getUser = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) throw error
+        setUser(session?.user ?? null)
+      } catch (error) {
+        console.error('Error checking auth status:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
+
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          setUser(session?.user ?? null)
+          router.refresh()
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          router.refresh()
+        }
+      }
+    )
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [pathname, router, supabase])
 
   async function handleSignOut() {
     try {
+      setIsLoading(true)
       await supabase.auth.signOut()
+      setUser(null)
       toast({
         title: "Success",
         description: "You have been signed out successfully.",
@@ -57,6 +75,8 @@ export default function Header() {
         description: "Failed to sign out",
         variant: "destructive",
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
