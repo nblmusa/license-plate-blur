@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import { PLANS } from '@/lib/stripe';
 import supabaseServer from "@/lib/supabase-server";
 
-export const dynamic = 'force-dynamic';
-
 export async function GET() {
   try {
     const supabase = supabaseServer();
