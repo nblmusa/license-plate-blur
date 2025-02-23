@@ -81,7 +81,9 @@ export default function Header() {
   }
 
   const navigation = [
+    { name: 'About', href: '/about' },
     ...(!user ? [{ name: 'Pricing', href: '/pricing' }] : []),
+    { name: 'Blog', href: '/blog' },
     { name: 'API Docs', href: '/docs' },
     ...(user ? [
       { name: 'Dashboard', href: '/dashboard' }
@@ -95,12 +97,18 @@ export default function Header() {
           <div className="flex items-center gap-6">
             <Link 
               href="/" 
-              className="flex items-center gap-2 transition-colors hover:opacity-90"
+              className="flex items-center gap-2.5 transition-all duration-300 hover:opacity-90 group"
             >
-              <div className="p-1.5 bg-primary/10 rounded-lg">
-                <Shield className="h-6 w-6 text-primary" />
+              <div className="relative p-2 bg-gradient-to-br from-blue-500/10 via-indigo-500/10 to-blue-500/10 rounded-xl group-hover:from-blue-500/20 group-hover:via-indigo-500/20 group-hover:to-blue-500/20 transition-all duration-300">
+                <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400 animate-pulse-subtle" />
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-indigo-500/10 rounded-xl blur-xl group-hover:blur-2xl transition-all duration-300 opacity-75" />
               </div>
-              <span className="text-lg font-bold">PlateGuard</span>
+              <div className="flex flex-col">
+                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 dark:from-blue-400 dark:via-blue-300 dark:to-blue-200">
+                  MaskingTech
+                </span>
+                <span className="text-[10px] font-medium text-muted-foreground/80">Privacy Through Innovation</span>
+              </div>
             </Link>
 
             {/* Desktop Navigation */}

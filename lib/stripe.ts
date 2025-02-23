@@ -147,37 +147,49 @@ export async function createCheckoutSession(
   priceId: string,
   returnUrl?: string
 ): Promise<string> {
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    line_items: [{
-      price: priceId,
-      quantity: 1,
-    }],
-    success_url: returnUrl || STRIPE_CONFIG.successUrl,
-    cancel_url: STRIPE_CONFIG.cancelUrl,
-    subscription_data: {
-      trial_period_days: STRIPE_CONFIG.trialDays,
-      metadata: {
-        plan: Object.keys(PLANS).find(key => PLANS[key].priceId === priceId),
+  try {
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription' as const,
+      payment_method_types: ['card'],
+      line_items: [{
+        price: priceId,
+        quantity: 1,
+      }],
+      success_url: returnUrl ?? STRIPE_CONFIG.successUrl,
+      cancel_url: STRIPE_CONFIG.cancelUrl,
+      subscription_data: {
+        trial_period_days: STRIPE_CONFIG.trialDays,
+        metadata: {
+          plan: Object.keys(PLANS).find(key => PLANS[key].priceId === priceId) ?? '',
+        },
       },
-    },
-  });
+    });
 
-  return session.url || '';
+    if (!session?.url) throw new Error('Failed to create checkout session');
+    return session.url;
+  } catch (error) {
+    console.error('Error creating checkout session:', error);
+    throw error;
+  }
 }
 
 export async function createCustomerPortalSession(
   customerId: string,
   returnUrl?: string
 ): Promise<string> {
-  const session = await stripe.billingPortal.sessions.create({
-    customer: customerId,
-    return_url: returnUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
-  });
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl ?? `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+    });
 
-  return session.url;
+    if (!session?.url) throw new Error('Failed to create portal session');
+    return session.url;
+  } catch (error) {
+    console.error('Error creating customer portal session:', error);
+    throw error;
+  }
 }
 
 export function getPlanById(planId: string): Plan | undefined {

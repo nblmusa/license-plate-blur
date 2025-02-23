@@ -10,8 +10,26 @@ import Footer from '@/components/footer'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PlateGuard - License Plate Masking Service',
+  title: 'MaskingTech - License Plate Masking Service',
   description: 'Professional license plate detection and masking service',
+  icons: {
+    icon: [
+      {
+        url: '/favicon.ico',
+        sizes: 'any',
+      },
+      {
+        url: '/favicon.svg',
+        type: 'image/svg+xml',
+      },
+    ],
+  },
+  manifest: '/site.webmanifest',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#020817' },
+  ],
+  viewport: 'width=device-width, initial-scale=1.0',
 }
 
 export default function RootLayout({

@@ -29,11 +29,13 @@ import {
 import Link from "next/link"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useDashboard } from "@/hooks/use-dashboard"
 import { formatDistanceToNow } from 'date-fns'
 import Image from "next/image"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
   const [showApiKey, setShowApiKey] = useState(false)
@@ -48,6 +50,47 @@ export default function DashboardPage() {
     copyApiKey,
     refreshData
   } = useDashboard()
+  const router = useRouter()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const subscription = searchParams.get('subscription');
+    const returnTo = searchParams.get('returnTo');
+
+    // Handle subscription status
+    if (subscription === 'success') {
+      toast({
+        title: "Success",
+        description: "Your subscription has been updated successfully.",
+      });
+    } else if (subscription === 'cancelled') {
+      toast({
+        description: "Subscription process was cancelled.",
+      });
+    }
+
+    // Clean up URL parameters
+    if (subscription || returnTo) {
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('subscription');
+      newUrl.searchParams.delete('returnTo');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
+
+    // Handle return URL if present
+    if (returnTo) {
+      try {
+        const returnUrl = new URL(returnTo);
+        // Only allow redirects to our own domain
+        if (returnUrl.origin === window.location.origin) {
+          router.push(returnUrl.pathname + returnUrl.search);
+        }
+      } catch (error) {
+        console.error('Invalid return URL:', error);
+      }
+    }
+  }, [router, toast]);
 
   if (isLoading) {
     return (

@@ -33,7 +33,7 @@ export async function POST() {
     // Generate QR code
     const otpauth = authenticator.keyuri(
       session.user.email || '',
-      'PlateGuard',
+      'MaskingTech',
       secret
     )
     

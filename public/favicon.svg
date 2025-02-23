@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M26.6667 7.44444L16 4L5.33333 7.44444V14.3333C5.33333 20.7111 9.86667 26.6667 16 28C22.1333 26.6667 26.6667 20.7111 26.6667 14.3333V7.44444Z" fill="url(#gradient)" stroke="url(#stroke)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="gradient" x1="5.33333" y1="4" x2="26.6667" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="5.33333" y1="4" x2="26.6667" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#4338CA"/>
+    </linearGradient>
+  </defs>
+</svg> 

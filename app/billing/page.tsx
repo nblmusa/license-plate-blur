@@ -106,13 +106,21 @@ export default function BillingPage() {
         method: 'POST'
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error)
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to open billing portal')
+      }
+
+      if (!data.url) {
+        throw new Error('No portal URL received')
+      }
+
       router.push(data.url)
     } catch (error) {
       console.error('Error opening customer portal:', error)
       toast({
         title: "Error",
-        description: "Failed to open billing portal",
+        description: error instanceof Error ? error.message : "Failed to open billing portal",
         variant: "destructive"
       })
     } finally {

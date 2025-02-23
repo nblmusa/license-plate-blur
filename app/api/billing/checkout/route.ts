@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get plan from request
+    // Get plan and return URL from request
     const { planId, returnUrl } = await request.json();
     const plan = PLANS[planId.toUpperCase()];
 
@@ -23,6 +23,25 @@ export async function POST(request: Request) {
         { error: 'Invalid plan selected' },
         { status: 400 }
       );
+    }
+
+    // Validate and construct return URLs
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!baseUrl) {
+      throw new Error('NEXT_PUBLIC_APP_URL must be set');
+    }
+
+    // Construct success and cancel URLs with proper encoding
+    const successUrl = new URL('/dashboard', baseUrl);
+    successUrl.searchParams.set('subscription', 'success');
+    if (returnUrl) {
+      successUrl.searchParams.set('returnTo', returnUrl);
+    }
+
+    const cancelUrl = new URL('/dashboard', baseUrl);
+    cancelUrl.searchParams.set('subscription', 'cancelled');
+    if (returnUrl) {
+      cancelUrl.searchParams.set('returnTo', returnUrl);
     }
 
     // Check if user already has a Stripe customer ID
@@ -45,7 +64,7 @@ export async function POST(request: Request) {
       customerId = customer.id;
     }
 
-    // Create checkout session
+    // Create checkout session with properly encoded URLs
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -54,18 +73,19 @@ export async function POST(request: Request) {
         price: plan.priceId,
         quantity: 1,
       }],
-      success_url: returnUrl || `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?subscription=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?subscription=cancelled`,
+      success_url: successUrl.toString(),
+      cancel_url: cancelUrl.toString(),
       subscription_data: {
         metadata: {
           user_id: session.user.id,
           plan_id: planId
         },
-        trial_period_days: 14
+        // trial_period_days: 14
       },
       metadata: {
         user_id: session.user.id,
-        plan_id: planId
+        plan_id: planId,
+        return_url: returnUrl || ''
       }
     });
 

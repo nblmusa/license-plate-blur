@@ -51,7 +51,7 @@ export default function ApiDocsPage() {
               <Card className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Quick Start Guide</h2>
                 <p className="mb-6 text-muted-foreground">
-                  Get started with the PlateGuard API in minutes. Follow these simple steps to begin masking license plates in your application.
+                  Get started with the MaskingTech API in minutes. Follow these simple steps to begin masking license plates in your application.
                 </p>
 
                 <div className="space-y-8">
@@ -79,10 +79,10 @@ export default function ApiDocsPage() {
                       <p className="mb-2">Install our official SDK for your preferred language:</p>
                       <div className="space-y-2">
                         <div className="p-3 bg-muted rounded-lg">
-                          <pre className="text-sm">npm install @plateguard/sdk</pre>
+                          <pre className="text-sm">npm install @maskingtech/sdk</pre>
                         </div>
                         <div className="p-3 bg-muted rounded-lg">
-                          <pre className="text-sm">pip install plateguard</pre>
+                          <pre className="text-sm">pip install masktech</pre>
                         </div>
                       </div>
                     </div>
@@ -98,7 +98,7 @@ export default function ApiDocsPage() {
                       <div className="p-4 bg-muted rounded-lg">
                         <pre className="text-sm overflow-x-auto">
 {`curl -X POST \\
-  ${process.env.NEXT_PUBLIC_APP_URL}/api/process-image \\
+  ${process.env.NEXT_PUBLIC_API_URL}/process-image \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: multipart/form-data" \\
   -F "image=@/path/to/image.jpg"`}
@@ -108,9 +108,9 @@ export default function ApiDocsPage() {
                       <p className="mt-4 mb-2">Using the SDK:</p>
                       <div className="p-4 bg-muted rounded-lg">
                         <pre className="text-sm">
-{`import { PlateGuard } from '@plateguard/sdk';
+{`import { MaskingTech } from '@maskingtech/sdk';
 
-const client = new PlateGuard('YOUR_API_KEY');
+const client = new MaskingTech('YOUR_API_KEY');
 const result = await client.maskLicensePlate('path/to/image.jpg');`}
                         </pre>
                       </div>
@@ -133,7 +133,7 @@ const result = await client.maskLicensePlate('path/to/image.jpg');`}
                     <div className="space-y-4">
                       <p>Your API key should be included in the Authorization header using the Bearer scheme:</p>
                       <div className="p-4 bg-muted rounded-lg">
-                        <pre className="text-sm">Authorization: Bearer lpm_your_api_key_here</pre>
+                        <pre className="text-sm">Authorization: Bearer your_api_key_here</pre>
                       </div>
                       <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                         <AlertTriangle className="h-4 w-4" />
@@ -193,7 +193,7 @@ const result = await client.maskLicensePlate('path/to/image.jpg');`}
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge>POST</Badge>
-                          <code className="text-sm bg-muted px-2 py-1 rounded">/api/process-image</code>
+                          <code className="text-sm bg-muted px-2 py-1 rounded">/process-image</code>
                         </div>
                         <p className="text-muted-foreground">
                           Upload and process an image to mask license plates.
@@ -270,7 +270,7 @@ const result = await client.maskLicensePlate('path/to/image.jpg');`}
                       <div>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge>POST</Badge>
-                          <code className="text-sm bg-muted px-2 py-1 rounded">/api/process-batch</code>
+                          <code className="text-sm bg-muted px-2 py-1 rounded">/process-batch</code>
                         </div>
                         <p className="text-muted-foreground">
                           Process multiple images in a single request.

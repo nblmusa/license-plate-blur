@@ -122,7 +122,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadUserProfile()
-  }, [])
+  }, [loadUserProfile])
 
   async function loadUserProfile() {
     try {
@@ -864,9 +864,9 @@ export default function SettingsPage() {
                         <Label>Example Usage</Label>
                         <div className="p-4 bg-muted rounded-lg">
                           <code className="text-sm font-mono break-all">
-                            curl -X POST https://api.plateguard.com/v1/process \<br />
-                            &nbsp;&nbsp;-H "Authorization: Bearer {showApiKey ? apiKey : '•'.repeat(40)}" \<br />
-                            &nbsp;&nbsp;-F "image=@photo.jpg"
+                            curl -X POST https://api.maskingtech.com/process-image \<br />
+                            &nbsp;&nbsp;-H &quot;Authorization: Bearer {showApiKey ? apiKey : '•'.repeat(40)}&quot; \<br />
+                            &nbsp;&nbsp;-F &quot;image=@photo.jpg&quot;
                           </code>
                         </div>
                       </div>

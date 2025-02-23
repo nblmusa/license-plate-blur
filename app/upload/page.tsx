@@ -994,7 +994,7 @@ export default function UploadPage() {
                             <div className="space-y-4">
                               <p className="font-medium">Processing your images...</p>
                               <div className="w-full max-w-xs mx-auto relative">
-                                <Progress value={progress} className="h-2" />
+                                <Progress value={Number(progress)} className="h-2" />
                                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 min-w-[4rem] text-sm text-muted-foreground">
                                   {progress}%
                                 </div>

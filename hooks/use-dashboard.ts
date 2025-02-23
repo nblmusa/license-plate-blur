@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useToast } from '@/hooks/use-toast'
 
 export interface DashboardStats {
@@ -58,11 +58,48 @@ export function useDashboard() {
   const [alertState, setAlertState] = useState<AlertState | null>(null)
   const { toast } = useToast()
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
+  const fetchDashboardData = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch('/api/dashboard')
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch dashboard data')
+      }
 
-  const checkAuth = async () => {
+      setStats({
+        imagesProcessed: data.stats?.images_processed || 0,
+        monthlyQuota: data.stats?.monthly_quota || 100,
+        lastUploadTime: data.stats?.last_upload_time,
+        detectedPlates: data.stats?.detected_plates || 0
+      })
+
+      setRecentActivity((data.recentActivity || []).map((item: ProcessedImage): RecentActivity => ({
+        id: item.id,
+        filename: item.filename,
+        processedAt: item.processed_at,
+        licensePlatesDetected: item.license_plates_detected,
+        thumbnailUrl: item.thumbnail_url,
+        processedUrl: item.processed_url
+      })))
+
+      if (data.apiKey) {
+        setApiKey(data.apiKey.key)
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load dashboard data",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [toast])
+
+  const checkAuth = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/session', {
         method: 'GET',
@@ -105,48 +142,11 @@ export function useDashboard() {
       setIsAuthenticated(false)
       setUser(null)
     }
-  }
+  }, [fetchDashboardData, toast])
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/dashboard')
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch dashboard data')
-      }
-
-      setStats({
-        imagesProcessed: data.stats?.images_processed || 0,
-        monthlyQuota: data.stats?.monthly_quota || 100,
-        lastUploadTime: data.stats?.last_upload_time,
-        detectedPlates: data.stats?.detected_plates || 0
-      })
-
-      setRecentActivity((data.recentActivity || []).map((item: ProcessedImage): RecentActivity => ({
-        id: item.id,
-        filename: item.filename,
-        processedAt: item.processed_at,
-        licensePlatesDetected: item.license_plates_detected,
-        thumbnailUrl: item.thumbnail_url,
-        processedUrl: item.processed_url
-      })))
-
-      if (data.apiKey) {
-        setApiKey(data.apiKey.key)
-      }
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
 
   const generateNewApiKey = async () => {
     return new Promise((resolve, reject) => {

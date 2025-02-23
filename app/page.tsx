@@ -154,7 +154,7 @@ export default function Home() {
         <div className="container mx-auto px-4 md:px-6 relative">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600/80 via-blue-700/80 to-indigo-600/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80 [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
-              How PlateGuard Works
+              How MaskingTech Works
             </h2>
             <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Secure and efficient license plate masking in three simple steps
@@ -201,7 +201,7 @@ export default function Home() {
             <div className="space-y-8">
               <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/5 via-blue-400/5 to-indigo-500/5 px-6 py-3 rounded-full hover:shadow-lg transition-all duration-300">
                 <Car className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <span className="font-medium text-blue-700 dark:text-blue-300">Why Choose PlateGuard</span>
+                <span className="font-medium text-blue-700 dark:text-blue-300">Why Choose MaskingTech</span>
               </div>
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 via-blue-800/80 to-indigo-700/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80 [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
                 Industry-Leading Privacy Protection

@@ -217,11 +217,11 @@ export default function PricingPage() {
           </div>
 
           {/* Enhanced Pricing Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 lg:gap-6 items-start mb-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4 lg:gap-6 mb-16">
             {Object.entries(PLANS).map(([key, plan]) => (
               <Card 
                 key={key} 
-                className={`group flex flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl
+                className={`group h-full flex flex-col overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl
                   ${key === 'PRO' ? 'border-primary/50 shadow-lg relative bg-gradient-to-br from-blue-50/50 via-white to-blue-50/30 dark:from-blue-900/50 dark:via-gray-900 dark:to-blue-900/30' : 'bg-background/60 backdrop-blur-sm'}
                   ${subscriptionData?.plan.id === plan.id.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
               >
@@ -238,24 +238,26 @@ export default function PricingPage() {
                     Current Plan
                   </div>
                 )}
-                <div className="p-6 sm:p-8 flex flex-col h-full space-y-6">
-                  <div>
+                <div className="p-6 sm:p-8 flex flex-col flex-1">
+                  <div className="mb-6">
                     <h3 className="text-2xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 dark:from-blue-400 dark:to-indigo-400">{plan.name}</h3>
-                    <div className="flex items-baseline gap-1 mb-6">
+                    <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-bold">${plan.price}</span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
-                    {getPlanAction(key, plan)}
                   </div>
-                  <div className="space-y-4 flex-1">
-                    {plan.features.map((feature, index) => (
-                      <div key={index} className="flex items-center gap-3 group">
-                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                          <Check className="h-4 w-4 text-primary" />
+                  <div className="flex-1 flex flex-col">
+                    <div className="space-y-4 flex-1 mb-6">
+                      {plan.features.map((feature, index) => (
+                        <div key={index} className="flex items-center gap-3 group">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                            <Check className="h-4 w-4 text-primary" />
+                          </div>
+                          <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{feature}</span>
                         </div>
-                        <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">{feature}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                    {getPlanAction(key, plan)}
                   </div>
                 </div>
               </Card>
@@ -265,7 +267,7 @@ export default function PricingPage() {
           {/* Enhanced Features Section */}
           <div className="mb-24">
             <h2 className="text-3xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-800 dark:from-blue-400 dark:via-blue-300 dark:to-blue-200">
-              Why Choose PlateGuard?
+              Why Choose MaskingTech?
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               <Card className="group p-6 text-center hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 border-blue-100/30 dark:border-blue-800/30">

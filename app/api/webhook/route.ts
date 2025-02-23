@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object
-      const userId = session.metadata.userId
+      const userId = session?.metadata?.userId
 
       // Update user's subscription status
       await supabase
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     }
     case 'customer.subscription.deleted': {
       const subscription = event.data.object
-      const userId = subscription.metadata.userId
+      const userId = subscription?.metadata?.userId
 
       // Reset user's subscription status
       await supabase
