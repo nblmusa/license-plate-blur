@@ -1,13 +1,12 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { PLANS } from '@/lib/stripe';
+import supabaseServer from "@/lib/supabase-server";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseServer();
     
     // Check authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession();
