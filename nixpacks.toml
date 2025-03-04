@@ -2,7 +2,7 @@
   cmds = []
 
 [build]
-  cmd = ''
+  cmd = 'echo "build"'
 
 [start]
   cmd = 'npm run start'
