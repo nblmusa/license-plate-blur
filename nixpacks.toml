@@ -1,8 +1,8 @@
 [phases.install]
-  cmds = []
+  cmds = ['npm install --legacy-peer-deps']
 
 [build]
-  cmd = 'echo "build"'
+  cmd = 'npm run build'
 
 [start]
   cmd = 'npm run start'
