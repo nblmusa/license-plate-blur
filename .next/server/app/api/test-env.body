@@ -1,0 +1,1 @@
+{"stripeKeyExists":true,"stripeKeyPrefix":"sk_test","nodeEnv":"production","stripeEnvVars":["STRIPE_SECRET_KEY","STRIPE_BASIC_PRICE_ID","STRIPE_PRO_PRICE_ID","STRIPE_ENTERPRISE_PRICE_ID"]}
