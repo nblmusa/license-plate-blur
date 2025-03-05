@@ -2,7 +2,7 @@
 nixPkgs = ["python3", "gcc", "glibc", "nodejs"]
 
 [phases.install]
-cmds = ["npm install --legacy-peer-deps"]
+cmds = ["npm install --legacy-peer-deps", "npm install --cpu=x64 --os=linux sharp"]
 
 [build]
 cmds = ["npm run build"]
