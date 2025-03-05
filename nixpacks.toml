@@ -4,8 +4,8 @@ nixPkgs = ["python3", "gcc", "glibc", "nodejs"]
 [phases.install]
 cmds = [
     "npm install --legacy-peer-deps", 
-    "npm install --os=linux --cpu=x64 sharp",
-    "npm install --os=linux --cpu=x64 @tensorflow/tfjs-node"
+    "npm install --platform=linux --arch=x64 sharp",
+    "npm install --platform=linux --arch=x64 @tensorflow/tfjs-node"
     ]
 
 [build]
