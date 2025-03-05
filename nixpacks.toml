@@ -1,5 +1,5 @@
 [phases.install]
-  cmds = ['npm install --force']
+  cmds = ['npm install --global windows-build-tools', 'npm install --force']
 
 [build]
   cmd = 'npm run build'
