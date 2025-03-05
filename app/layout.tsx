@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { SettingsProvider } from "@/contexts/settings-context"
 import Header from '@/components/header'
 import Footer from '@/components/footer'
+import { GoogleAnalytics } from '@/components/GoogleAnalytics'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -40,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <GoogleAnalytics />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
