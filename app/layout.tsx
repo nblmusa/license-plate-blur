@@ -7,6 +7,7 @@ import { SettingsProvider } from "@/contexts/settings-context"
 import Header from '@/components/header'
 import Footer from '@/components/footer'
 import { GoogleAnalytics } from '@/components/GoogleAnalytics'
+import { PageViewTracker } from '@/components/PageViewTracker'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -42,6 +43,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <GoogleAnalytics />
+        <PageViewTracker />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

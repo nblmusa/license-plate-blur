@@ -9,6 +9,7 @@ import { useEffect, useState } from "react"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { useAnalytics } from "@/hooks/useAnalytics"
 
 interface Subscription {
   id: string;
@@ -30,6 +31,7 @@ export default function PricingPage() {
   const supabase = createClientComponentClient();
   const { toast } = useToast();
   const router = useRouter();
+  const analytics = useAnalytics();
 
   useEffect(() => {
     checkUser();
@@ -48,6 +50,7 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
+      analytics.trackApiError('/api/billing/subscription', error instanceof Error ? error.message : 'Failed to fetch subscription');
       toast({
         title: "Error",
         description: "Failed to load subscription data",
@@ -61,6 +64,13 @@ export default function PricingPage() {
   async function handleUpgrade(planId: string) {
     try {
       setIsLoading(true);
+      
+      // Track subscription start
+      const plan = Object.values(PLANS).find(p => p.id.toLowerCase() === planId.toLowerCase());
+      if (plan) {
+        analytics.trackSubscriptionStart(plan.name.toLowerCase(), plan.price);
+      }
+
       const response = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,6 +84,7 @@ export default function PricingPage() {
       router.push(data.url);
     } catch (error) {
       console.error('Upgrade error:', error);
+      analytics.trackApiError('/api/billing/checkout', error instanceof Error ? error.message : 'Failed to start upgrade');
       toast({
         title: "Error",
         description: "Failed to start upgrade process",
@@ -83,6 +94,13 @@ export default function PricingPage() {
       setIsLoading(false);
     }
   }
+
+  // Track plan view on component mount
+  useEffect(() => {
+    Object.values(PLANS).forEach(plan => {
+      analytics.trackSubscriptionView(plan.name.toLowerCase());
+    });
+  }, [analytics]);
 
   function getPlanAction(planKey: string, plan: typeof PLANS[keyof typeof PLANS]) {
     if (isLoading) {

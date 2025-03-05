@@ -9,11 +9,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { useAnalytics } from "@/hooks/useAnalytics"
 
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const analytics = useAnalytics()
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -27,6 +29,7 @@ export default function SignUpPage() {
       const confirmPassword = formData.get('confirmPassword')
       
       if (password !== confirmPassword) {
+        analytics.trackClientError('signup', 'Passwords do not match')
         throw new Error('Passwords do not match')
       }
 
@@ -41,6 +44,8 @@ export default function SignUpPage() {
         throw new Error(data.error || 'Failed to sign up')
       }
 
+      analytics.trackSignup('email')
+      
       toast({
         title: "Success",
         description: "Please check your email to confirm your account.",
@@ -48,6 +53,7 @@ export default function SignUpPage() {
 
       router.push('/login')
     } catch (error) {
+      analytics.trackApiError('/auth/sign-up', error instanceof Error ? error.message : 'Failed to sign up')
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Something went wrong",

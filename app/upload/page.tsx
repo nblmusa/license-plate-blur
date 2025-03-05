@@ -22,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useAnalytics } from "@/hooks/useAnalytics"
 
 export default function UploadPage() {
   const [image, setImage] = useState<string | null>(null)
@@ -66,6 +67,7 @@ export default function UploadPage() {
     usedLogo: boolean;
     detections: number;
   }>>([])
+  const analytics = useAnalytics()
 
   // Check authentication status
   useEffect(() => {
@@ -87,18 +89,25 @@ export default function UploadPage() {
     }
   }, [])
 
-  // Modified processBatchQueue to include watermark for non-authenticated users
+  // Modified processBatchQueue to include analytics
   const processBatchQueue = useCallback(async () => {
     if (isBatchProcessing || batchQueue.length === 0) return
 
     setIsBatchProcessing(true)
     let currentQueue = [...batchQueue]
 
+    // Track batch processing start
+    analytics.trackProcessingStart(batchQueue.length)
+    const startTime = Date.now()
+
     for (let i = 0; i < currentQueue.length; i++) {
       const item = currentQueue[i]
       if (item.status !== 'pending') continue
 
       try {
+        // Track individual file upload
+        analytics.trackImageUpload(item.file.type, item.file.size)
+
         // Update status to processing
         currentQueue = currentQueue.map((qItem, index) => 
           index === i ? { ...qItem, status: 'processing' as const } : qItem
@@ -189,7 +198,15 @@ export default function UploadPage() {
           title: `Processed ${item.file.name}`,
           description: `License plate${data.metadata.licensePlatesDetected > 1 ? 's' : ''} masked successfully.${!isAuthenticated ? ' (Free Version - Watermark Added)' : ''}`,
         })
+
+        // Track successful processing
+        analytics.trackFeatureUsage('license_plate_masking', true)
+
       } catch (error) {
+        // Track processing error
+        analytics.trackProcessingError(error instanceof Error ? error.message : 'Unknown error')
+        analytics.trackFeatureUsage('license_plate_masking', false)
+
         // Update item as error
         currentQueue = currentQueue.map((qItem, index) => 
           index === i ? { 
@@ -208,8 +225,10 @@ export default function UploadPage() {
       }
     }
 
+    // Track batch processing completion
+    analytics.trackProcessingComplete(batchQueue.length, Date.now() - startTime)
     setIsBatchProcessing(false)
-  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast, isAuthenticated])
+  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast, isAuthenticated, analytics])
 
   // Start processing when queue changes
   useEffect(() => {
@@ -546,6 +565,27 @@ export default function UploadPage() {
       </Dialog>
     )
   }
+
+  // Track file download
+  const handleDownload = useCallback(async (item: typeof batchQueue[0]) => {
+    try {
+      analytics.trackDownloadStart('image', 1)
+      const link = document.createElement('a')
+      link.href = item.result!
+      link.download = `masked-${item.file.name}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      analytics.trackDownloadComplete('image', 1)
+    } catch (error) {
+      analytics.trackApiError('download', error instanceof Error ? error.message : 'Download failed')
+      toast({
+        title: "Error downloading image",
+        description: error instanceof Error ? error.message : "Download failed",
+        variant: "destructive",
+      })
+    }
+  }, [analytics, toast])
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -1148,12 +1188,7 @@ export default function UploadPage() {
                               variant="ghost"
                               className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => {
-                                const link = document.createElement('a')
-                                link.href = item.result!
-                                link.download = `masked-${item.file.name}`
-                                document.body.appendChild(link)
-                                link.click()
-                                document.body.removeChild(link)
+                                handleDownload(item)
                               }}
                             >
                               <Download className="h-4 w-4" />

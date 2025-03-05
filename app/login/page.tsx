@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
+import { useAnalytics } from "@/hooks/useAnalytics"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [tempSession, setTempSession] = useState<any>(null)
   const router = useRouter()
   const { toast } = useToast()
+  const analytics = useAnalytics()
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -38,7 +40,9 @@ export default function LoginPage() {
       if (data.requires2FA) {
         setRequires2FA(true)
         setTempSession(data.tempSession)
+        analytics.trackFeatureUsage('2fa_required', true)
       } else {
+        analytics.trackLogin('password')
         toast({
           title: "Success",
           description: "You have been signed in successfully.",
@@ -47,6 +51,7 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (error) {
+      analytics.trackApiError('/auth/sign-in', error instanceof Error ? error.message : 'Failed to sign in')
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Something went wrong",
@@ -79,6 +84,9 @@ export default function LoginPage() {
         throw new Error(data.error || 'Failed to verify 2FA')
       }
 
+      analytics.trackLogin('2fa')
+      analytics.trackFeatureUsage('2fa_verification', true)
+      
       toast({
         title: "Success",
         description: "Two-factor authentication verified successfully.",
@@ -87,6 +95,8 @@ export default function LoginPage() {
       router.push('/dashboard')
       router.refresh()
     } catch (error) {
+      analytics.trackApiError('/auth/verify-2fa', error instanceof Error ? error.message : 'Failed to verify 2FA')
+      analytics.trackFeatureUsage('2fa_verification', false)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to verify 2FA",
