@@ -1,5 +1,9 @@
 [phases.install]
-  cmds = ['python3 --version', 'npm config set python /usr/bin/python3', 'npm install']
+  cmds = [
+    'apt update && apt install -y python3',
+    'npm config set python /usr/bin/python3',
+    'apt install -y build-essential python3',
+    'npm install']
 
 [build]
   cmd = 'npm run build'
