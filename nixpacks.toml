@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python3", "gcc", "glibc", "nodejs", "tensorflow"]
+nixPkgs = ["python3", "gcc", "glibc", "nodejs"]
 
 [phases.install]
 cmds = [
