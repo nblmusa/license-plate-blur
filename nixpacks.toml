@@ -1,12 +1,11 @@
+[phases.setup]
+nixPkgs = ["python3", "gcc", "glibc", "nodejs"]
+
 [phases.install]
-  cmds = [
-    'apt update && apt install -y python3',
-    'npm config set python /usr/bin/python3',
-    'apt install -y build-essential python3',
-    'npm install']
+cmds = ["npm install --legacy-peer-deps"]
 
-[build]
-  cmd = 'npm run build'
+[phases.build]
+cmds = ["npm run build"]
 
-[start]
-  cmd = 'npm run start'
+[phases.start]
+cmds = ["npm start"]
