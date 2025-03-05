@@ -1,5 +1,5 @@
 [phases.install]
-  cmds = ['npm install --global windows-build-tools', 'npm install --force']
+  cmds = ['python3 --version', 'npm config set python /usr/bin/python3', 'npm install']
 
 [build]
   cmd = 'npm run build'
