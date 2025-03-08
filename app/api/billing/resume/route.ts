@@ -16,34 +16,40 @@ export async function POST() {
     // Get subscription details
     const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
-      .select('stripe_customer_id')
+      .select('stripe_subscription_id')
       .eq('user_id', session.user.id)
       .single()
 
-    if (subError && subError.code !== 'PGRST116') {
+    if (subError) {
       throw subError
     }
 
-    // If no subscription found, create a checkout session instead
-    if (!subscription?.stripe_customer_id) {
+    if (!subscription?.stripe_subscription_id) {
       return NextResponse.json(
-        { error: 'No active subscription found. Please upgrade to access billing portal.' },
+        { error: 'No active subscription found' },
         { status: 400 }
       )
     }
 
-    // Create portal session
-    const { url } = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripe_customer_id,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`
+    // Resume subscription
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      cancel_at_period_end: false
     })
 
-    // Return the portal URL
-    return NextResponse.json({ url })
+    // Update subscription in database
+    await supabase
+      .from('subscriptions')
+      .update({
+        cancel_at_period_end: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('stripe_subscription_id', subscription.stripe_subscription_id)
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error creating portal session:', error)
+    console.error('Error resuming subscription:', error)
     return NextResponse.json(
-      { error: 'Failed to create portal session' },
+      { error: 'Failed to resume subscription' },
       { status: 500 }
     )
   }

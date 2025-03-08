@@ -92,6 +92,16 @@ export default function DashboardPage() {
     }
   }, [router, toast]);
 
+  // Add function to handle image click
+  const handleImageClick = (processedUrl: string) => {
+    window.open(processedUrl, '_blank')
+  }
+
+  // Add function to handle team invite
+  const handleTeamInvite = () => {
+    router.push('/settings?tab=team')
+  }
+
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12">
@@ -357,7 +367,18 @@ export default function DashboardPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {recentActivity.map((item) => (
-                    <div key={item.id} className="aspect-square rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer relative group overflow-hidden">
+                    <div 
+                      key={item.id} 
+                      className="aspect-square rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer relative group overflow-hidden"
+                      onClick={() => handleImageClick(item.processedUrl || item.thumbnailUrl)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          handleImageClick(item.processedUrl || item.thumbnailUrl)
+                        }
+                      }}
+                    >
                       {item.thumbnailUrl ? (
                         <>
                           <Image
@@ -454,7 +475,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">{stats.monthlyQuota} images per month</p>
                     </div>
                     <Button variant="outline" size="sm" className="gap-2" asChild>
-                      <Link href="/pricing">
+                      <Link href="/settings/billing">
                         <Sparkles className="h-4 w-4" />
                         Upgrade
                       </Link>
@@ -468,7 +489,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">View invoices and manage subscription</p>
                     </div>
                     <Button variant="outline" size="sm" className="gap-2" asChild>
-                      <Link href="/billing">
+                      <Link href="/settings/billing">
                         <CreditCard className="h-4 w-4" />
                         View Billing
                       </Link>
@@ -482,7 +503,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">View your API keys and usage</p>
                     </div>
                     <Button variant="outline" size="sm" className="gap-2" asChild>
-                      <Link href="/docs">
+                      <Link href="/docs/api">
                         <Lock className="h-4 w-4" />
                         View Docs
                       </Link>
@@ -495,9 +516,11 @@ export default function DashboardPage() {
                       <p className="font-medium">Team Members</p>
                       <p className="text-sm text-muted-foreground">Manage team access</p>
                     </div>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <Users className="h-4 w-4" />
-                      Invite
+                    <Button variant="outline" size="sm" className="gap-2" asChild>
+                      <Link href="/settings/team">
+                        <Users className="h-4 w-4" />
+                        Manage Team
+                      </Link>
                     </Button>
                   </div>
                 </div>

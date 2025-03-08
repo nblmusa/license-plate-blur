@@ -62,7 +62,10 @@ export async function POST(request: Request) {
         }
       });
       customerId = customer.id;
+      console.log('created new customer id', customerId);
     }
+
+    console.log('customer id: ', customerId);
 
     // Create checkout session with properly encoded URLs
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -95,13 +98,28 @@ export async function POST(request: Request) {
 
     // If this is a new customer, create initial subscription record
     if (!subscription) {
+      console.log('subscription data ', {
+        user_id: session.user.id,
+        stripe_customer_id: customerId,
+        stripe_subscription_id: 'pending_' + checkoutSession.id, // Temporary ID until subscription is created
+        stripe_price_id: plan.priceId,
+        plan_id: planId,
+        status: 'incomplete',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
       const { error: dbError } = await supabase
         .from('subscriptions')
         .insert([{
           user_id: session.user.id,
           stripe_customer_id: customerId,
+          stripe_subscription_id: 'pending_' + checkoutSession.id, // Temporary ID until subscription is created
+          stripe_price_id: plan.priceId,
           plan_id: planId,
-          status: 'incomplete'
+          status: 'incomplete',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }]);
 
       if (dbError) {

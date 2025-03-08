@@ -84,9 +84,9 @@ export default function Header() {
     { name: 'About', href: '/about' },
     ...(!user ? [{ name: 'Pricing', href: '/pricing' }] : []),
     { name: 'Blog', href: '/blog' },
-    { name: 'API Docs', href: '/docs' },
+    { name: 'Docs', href: '/docs' },
     ...(user ? [
-      { name: 'Dashboard', href: '/dashboard' }
+      // { name: 'Dashboard', href: '/dashboard' }
     ] : []),
   ]
 
@@ -149,12 +149,6 @@ export default function Header() {
                         <Link href="/dashboard" className="cursor-pointer">
                           <User className="mr-2 h-4 w-4" />
                           Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/billing" className="cursor-pointer">
-                          <CreditCard className="mr-2 h-4 w-4" />
-                          Billing
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>

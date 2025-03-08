@@ -27,28 +27,6 @@ export default function Footer() {
               <p className="text-sm text-muted-foreground/80">
                 Advanced license plate masking technology for your vehicle images.
               </p>
-              <div className="flex items-center gap-3">
-                <Link 
-                  href="https://github.com" 
-                  target="_blank"
-                  className="p-2 rounded-full hover:bg-primary/5 transition-colors"
-                >
-                  <Github className="h-5 w-5 text-foreground/80 hover:text-foreground transition-colors" />
-                </Link>
-                <Link 
-                  href="https://twitter.com" 
-                  target="_blank"
-                  className="p-2 rounded-full hover:bg-primary/5 transition-colors"
-                >
-                  <Twitter className="h-5 w-5 text-foreground/80 hover:text-foreground transition-colors" />
-                </Link>
-                <Link 
-                  href="mailto:support@maskingtech.com"
-                  className="p-2 rounded-full hover:bg-primary/5 transition-colors"
-                >
-                  <Mail className="h-5 w-5 text-foreground/80 hover:text-foreground transition-colors" />
-                </Link>
-              </div>
             </div>
 
             {/* Product */}
@@ -93,11 +71,6 @@ export default function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/careers" className="text-muted-foreground/80 hover:text-foreground/90 transition-colors">
-                    Careers
-                  </Link>
-                </li>
-                <li>
                   <Link href="/contact" className="text-muted-foreground/80 hover:text-foreground/90 transition-colors">
                     Contact
                   </Link>
@@ -117,16 +90,6 @@ export default function Footer() {
                 <li>
                   <Link href="/terms" className="text-muted-foreground/80 hover:text-foreground/90 transition-colors">
                     Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/cookies" className="text-muted-foreground/80 hover:text-foreground/90 transition-colors">
-                    Cookie Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/security" className="text-muted-foreground/80 hover:text-foreground/90 transition-colors">
-                    Security
                   </Link>
                 </li>
               </ul>

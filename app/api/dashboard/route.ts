@@ -1,7 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import supabaseServer from "@/lib/supabase-server"; 
 
 function generateApiKey() {
   return `lpm_${crypto.randomBytes(32).toString('hex')}`;
@@ -9,7 +8,7 @@ function generateApiKey() {
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseServer();
     
     // Check authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession();

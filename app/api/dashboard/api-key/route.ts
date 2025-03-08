@@ -1,7 +1,7 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import supabaseServer from "@/lib/supabase-server"; 
 
 // Generate a secure API key
 function generateApiKey() {
@@ -10,7 +10,7 @@ function generateApiKey() {
 
 export async function POST() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseServer();
     
     // Check authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -56,7 +56,7 @@ export async function POST() {
 
 export async function DELETE() {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = supabaseServer();
     
     // Check authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession();

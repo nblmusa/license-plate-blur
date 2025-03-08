@@ -1,57 +1,79 @@
-import { NextResponse } from 'next/server';
-import { PLANS } from '@/lib/stripe';
-import supabaseServer from "@/lib/supabase-server";
+import { NextResponse } from 'next/server'
+import supabaseServer from "@/lib/supabase-server"; 
 
 export async function GET() {
   try {
     const supabase = supabaseServer();
     
     // Check authentication
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { data: { session }, error: authError } = await supabase.auth.getSession()
     if (authError || !session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user's subscription
-    const { data: subscription, error: subscriptionError } = await supabase
+    // Get subscription details
+    const { data: subscription, error: subError } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', session.user.id)
-      .single();
+      .single()
 
-    if (subscriptionError && subscriptionError.code !== 'PGRST116') {
-      throw subscriptionError;
+    if (subError && subError.code !== 'PGRST116') {
+      throw subError
     }
 
-    // If no subscription found, user is on free plan
-    if (!subscription) {
-      return NextResponse.json({
-        plan: PLANS.FREE,
-        subscription: null
-      });
+    // Get profile for subscription tier
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', session.user.id)
+      .single()
+
+    if (profileError) {
+      throw profileError
     }
 
-    // Get the plan details
-    const plan = PLANS[subscription.plan_id.toUpperCase()];
-    if (!plan) {
-      throw new Error('Invalid plan ID in subscription');
+    // Get usage history for the last 6 months
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+    const { data: usageHistory, error: usageError } = await supabase
+      .from('usage_records')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .gte('created_at', sixMonthsAgo.toISOString())
+      .order('created_at', { ascending: false })
+
+    if (usageError) {
+      throw usageError
     }
+
+    // Format usage history
+    const formattedUsageHistory = (usageHistory || []).map(record => ({
+      month: new Date(record.created_at).toLocaleString('default', { month: 'long', year: 'numeric' }),
+      imagesProcessed: record.images_processed
+    }))
 
     return NextResponse.json({
-      plan,
-      subscription: {
-        id: subscription.id,
-        status: subscription.status,
-        currentPeriodStart: subscription.current_period_start,
-        currentPeriodEnd: subscription.current_period_end,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end
-      }
-    });
+      tier: profile.subscription_tier || 'free',
+      status: subscription?.status || 'active',
+      currentPeriodEnd: subscription?.current_period_end || null,
+      cancelAtPeriodEnd: subscription?.cancel_at_period_end || false,
+      usage: {
+        imagesProcessed: subscription?.usage?.images_processed || 0,
+        periodStart: subscription?.current_period_start || new Date().toISOString(),
+        periodEnd: subscription?.current_period_end || new Date().toISOString(),
+        daysLeft: subscription?.current_period_end 
+          ? Math.max(0, Math.ceil((new Date(subscription.current_period_end).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          : 30
+      },
+      usageHistory: formattedUsageHistory
+    })
   } catch (error) {
-    console.error('Subscription API Error:', error);
+    console.error('Error fetching subscription:', error)
     return NextResponse.json(
       { error: 'Failed to fetch subscription' },
       { status: 500 }
-    );
+    )
   }
 } 

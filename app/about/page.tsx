@@ -1,5 +1,3 @@
-"use client"
-
 import { Shield, Lock, Zap, Users, Globe, Award } from "lucide-react"
 import { Card } from "@/components/ui/card"
 
