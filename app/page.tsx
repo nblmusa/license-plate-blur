@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Shield, Upload, Download, Key, ArrowRight, Car, Lock, Gauge, CheckCircle2, Sparkles, Camera, ImageIcon, Cog, BadgeCheck } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { ImageComparison } from "@/app/components/image-comparison"
 
 export default function Home() {
   return (
@@ -44,13 +45,28 @@ export default function Home() {
                   </span>
                 </p>
               </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl/none font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 via-blue-800/80 to-indigo-800/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-blue-200/80 animate-fade-in-up [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
+              <h1 className="text-3xl pb-2 sm:text-4xl md:text-5xl lg:text-6xl/none font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 via-blue-800/80 to-indigo-800/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-blue-200/80 animate-fade-in-up [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
                 Privacy Protection for Your Vehicle Images
               </h1>
               <p className="mx-auto max-w-[700px] text-base sm:text-lg md:text-xl text-gray-600/90 dark:text-gray-300/90 animate-fade-in-up delay-100 px-4">
                 Instantly mask license plates in your photos with our advanced AI technology. Perfect for automotive businesses, real estate listings, and social media content.
               </p>
             </div>
+
+            {/* Replace the old image grid with the new comparison component */}
+            <div className="w-full max-w-3xl mt-8 sm:mt-12 animate-fade-in-up delay-300">
+              <ImageComparison
+                beforeImage="/images/volvo-before.webp"
+                afterImage="/images/volvo-after.webp"
+                beforeLabel="Original Image"
+                afterLabel="Protected Image"
+                className="hover:scale-[1.02] transition-transform duration-500"
+              />
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                Drag the slider to compare before and after • AI-powered license plate detection and masking
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 animate-fade-in-up delay-200 w-full sm:w-auto">
               <Button size="lg" className="w-full sm:w-auto min-w-[150px] group bg-gradient-to-r from-blue-600/80 via-blue-700/80 to-indigo-600/80 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 dark:from-blue-500/80 dark:via-blue-600/80 dark:to-indigo-500/80 transition-all duration-300 shadow-lg hover:shadow-xl">
                 <Link href="/upload" className="flex items-center justify-center w-full">
@@ -60,38 +76,6 @@ export default function Home() {
               <Button variant="outline" size="lg" className="w-full sm:w-auto min-w-[150px] border-blue-200/30 dark:border-blue-800/30 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300">
                 <Link href="/pricing" className="w-full text-center">View Pricing</Link>
               </Button>
-            </div>
-
-            {/* Add hero image grid */}
-            <div className="w-full max-w-5xl mt-8 sm:mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 px-4 animate-fade-in-up delay-300">
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
-                <Image
-                  src="/images/original-image.png"
-                  alt="Original car image"
-                  fill
-                  className="object-cover transition-transform hover:scale-105 duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent">
-                  <p className="absolute bottom-4 left-4 text-white font-medium text-sm sm:text-base">Original Image</p>
-                </div>
-              </div>
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl sm:translate-y-8 hidden sm:block">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <ArrowRight className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 animate-pulse" />
-                </div>
-                <div className="absolute inset-0 bg-blue-500/5" />
-              </div>
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
-                <Image
-                  src="/images/protected-image.png"
-                  alt="Masked car image"
-                  fill
-                  className="object-cover transition-transform hover:scale-105 duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent">
-                  <p className="absolute bottom-4 left-4 text-white font-medium text-sm sm:text-base">Protected Image</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -228,7 +212,7 @@ export default function Home() {
                 <Car className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
                 <span className="font-medium text-sm sm:text-base text-blue-700 dark:text-blue-300">Why Choose MaskingTech</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 via-blue-800/80 to-indigo-700/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80 [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
+              <h2 className="text-2xl pb-2 sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 via-blue-800/80 to-indigo-700/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80 [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
                 Industry-Leading Privacy Protection
               </h2>
               <div className="space-y-4">
@@ -280,103 +264,105 @@ export default function Home() {
         </div>
       </section>
 
-      {/* API Section */}
+      {/* Statistics Section (New) */}
       <section className="relative w-full py-12 sm:py-16 bg-gradient-to-b from-gray-50/40 via-white to-gray-50/40 dark:from-gray-900/90 dark:via-gray-900/95 dark:to-gray-800/90">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(59,130,246,0.05),transparent_70%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(59,130,246,0.02)_0%,rgba(59,130,246,0)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.05),transparent_70%)]" />
         <div className="container mx-auto px-4 sm:px-6 relative">
-          <div className="flex flex-col items-center space-y-8 text-center">
-            <div className="space-y-4 max-w-2xl">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-blue-600/80 via-blue-700/80 to-indigo-600/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80 [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
-                Powerful API Integration
-              </h2>
-              <p className="mx-auto max-w-[700px] text-lg text-gray-600 md:text-xl dark:text-gray-300">
-                Seamlessly integrate our license plate masking technology into your application with just a few lines of code.
-              </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
+            <div className="text-center space-y-2">
+              <div className="text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">99.9%</div>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Detection Accuracy</p>
             </div>
-            <div className="grid md:grid-cols-2 gap-8 p-8 bg-gradient-to-br from-white via-blue-50/10 to-blue-100/5 dark:from-gray-800 dark:via-blue-900/3 dark:to-blue-800/5 rounded-2xl max-w-4xl w-full hover:shadow-xl transition-all duration-300 border border-blue-100/30 dark:border-blue-800/30">
-              <div className="group flex items-start gap-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-indigo-50/20 dark:hover:from-blue-900/5 dark:hover:to-indigo-900/5 transition-colors duration-300">
-                <div className="p-3 bg-gradient-to-br from-blue-500/3 to-indigo-500/3 rounded-xl group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-colors duration-300">
-                  <Key className="h-6 w-6 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 to-indigo-700/80 dark:from-blue-400/80 dark:to-indigo-400/80">Simple Integration</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Get started quickly with our well-documented RESTful API and SDKs.
-                  </p>
-                </div>
-              </div>
-              <div className="group flex items-start gap-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-indigo-50/20 dark:hover:from-blue-900/5 dark:hover:to-indigo-900/5 transition-colors duration-300">
-                <div className="p-3 bg-gradient-to-br from-blue-500/3 to-indigo-500/3 rounded-xl group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-colors duration-300">
-                  <Gauge className="h-6 w-6 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 to-indigo-700/80 dark:from-blue-400/80 dark:to-indigo-400/80">High Performance</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Process thousands of images with our scalable infrastructure.
-                  </p>
-                </div>
-              </div>
-              <div className="group flex items-start gap-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-indigo-50/20 dark:hover:from-blue-900/5 dark:hover:to-indigo-900/5 transition-colors duration-300">
-                <div className="p-3 bg-gradient-to-br from-blue-500/3 to-indigo-500/3 rounded-xl group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-colors duration-300">
-                  <Lock className="h-6 w-6 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 to-indigo-700/80 dark:from-blue-400/80 dark:to-indigo-400/80">Secure by Design</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Enterprise-grade security with API key authentication.
-                  </p>
-                </div>
-              </div>
-              <div className="group flex items-start gap-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-blue-50/20 hover:to-indigo-50/20 dark:hover:from-blue-900/5 dark:hover:to-indigo-900/5 transition-colors duration-300">
-                <div className="p-3 bg-gradient-to-br from-blue-500/3 to-indigo-500/3 rounded-xl group-hover:from-blue-500/5 group-hover:to-indigo-500/5 transition-colors duration-300">
-                  <Car className="h-6 w-6 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-300" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-lg font-semibold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 to-indigo-700/80 dark:from-blue-400/80 dark:to-indigo-400/80">Vehicle Analytics</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Optional metadata about vehicle type and positioning.
-                  </p>
-                </div>
-              </div>
+            <div className="text-center space-y-2">
+              <div className="text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">2M+</div>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Images Processed</p>
             </div>
-            <Button variant="outline" size="lg" className="group border-blue-200/30 dark:border-blue-800/30 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300" asChild>
-              <Link href="/docs" className="flex items-center">
-                View Documentation <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            </Button>
+            <div className="text-center space-y-2">
+              <div className="text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">&lt;1s</div>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Processing Time</p>
+            </div>
+            <div className="text-center space-y-2">
+              <div className="text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">50k+</div>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Happy Users</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Add new gallery section */}
-      <section className="relative w-full py-12 sm:py-16 bg-gradient-to-b from-gray-50/40 via-white to-gray-50/40 dark:from-gray-900/90 dark:via-gray-900/95 dark:to-gray-800/90">
+      {/* Testimonials Section (New) */}
+      <section className="relative w-full py-12 sm:py-16 bg-gradient-to-b from-white via-gray-50/40 to-white dark:from-gray-800/90 dark:via-gray-900/95 dark:to-gray-900/90">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.05),transparent_50%)]" />
         <div className="container mx-auto px-4 sm:px-6 relative">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600/80 via-blue-700/80 to-indigo-600/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80">
-              See It In Action
+              Trusted by Industry Leaders
             </h2>
             <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              See real examples of our license plate masking technology in action.
+              See what our customers say about our license plate masking technology.
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="relative aspect-[4/3] rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <Image
-                  src={`/images/gallery-${i}.jpg`}
-                  alt={`Gallery image ${i}`}
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
-                  <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
-                    <p className="text-white text-xs sm:text-sm">License plate automatically detected and masked</p>
-                  </div>
+          <div className="grid md:grid-cols-3 gap-6 sm:gap-8">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-100/30 dark:border-blue-800/30">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <Car className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-700 dark:text-blue-300">AutoMax Dealership</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">John Smith, Marketing Director</p>
                 </div>
               </div>
-            ))}
+              <p className="text-gray-600 dark:text-gray-300">&ldquo;MaskingTech has revolutionized how we handle vehicle photos. The automated process saves us hours of manual work.&rdquo;</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-100/30 dark:border-blue-800/30">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <ImageIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-700 dark:text-blue-300">RealEstate Pro</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Sarah Johnson, Agent</p>
+                </div>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300">&ldquo;Perfect for property listings! The AI detection is incredibly accurate and the process is lightning fast.&rdquo;</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-100/30 dark:border-blue-800/30">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <Cog className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-700 dark:text-blue-300">TechCorp Solutions</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Mike Chen, CTO</p>
+                </div>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300">&ldquo;The API integration was seamless, and the performance is outstanding. Exactly what we needed for our platform.&rdquo;</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section (New) */}
+      <section className="relative w-full py-16 sm:py-20">
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-50/30 to-white dark:from-blue-950/30 dark:to-gray-900" />
+        <div className="container mx-auto px-4 sm:px-6 relative">
+          <div className="max-w-3xl mx-auto text-center">
+            <h2 className="text-3xl pb-2 sm:text-4xl font-bold tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600/80 via-blue-700/80 to-indigo-600/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-indigo-400/80">
+              Ready to Protect Your Vehicle Images?
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-8 text-lg">
+              Join thousands of satisfied users and start protecting your images today.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300" asChild>
+                <Link href="/upload" className="flex items-center justify-center">
+                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button variant="outline" size="lg" className="border-blue-200/30 dark:border-blue-800/30 hover:bg-blue-50/30 dark:hover:bg-blue-950/30" asChild>
+                <Link href="/pricing">View Enterprise Plans</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>

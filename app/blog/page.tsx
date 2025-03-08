@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Clock, ArrowRight, Tag } from "lucide-react"
 import Link from "next/link"
-
+import Image from "next/image"
 interface BlogPost {
   id: string
   title: string
@@ -12,6 +12,7 @@ interface BlogPost {
   category: string
   slug: string
   featured?: boolean
+  image?: string
 }
 
 const blogPosts: BlogPost[] = [
@@ -23,7 +24,8 @@ const blogPosts: BlogPost[] = [
     readTime: "5 min read",
     category: "Privacy",
     slug: "future-of-privacy-visual-data",
-    featured: true
+    featured: true,
+    image: "/images/blog/future-of-privacy-visual-data.webp"
   },
   {
     id: "2",
@@ -33,7 +35,8 @@ const blogPosts: BlogPost[] = [
     readTime: "8 min read",
     category: "Legal",
     slug: "license-plate-privacy-laws",
-    featured: true
+    featured: true,
+    image: "/images/blog/license-plate-privacy-laws.jpeg"
   },
   {
     id: "3",
@@ -42,7 +45,8 @@ const blogPosts: BlogPost[] = [
     date: "2024-03-15",
     readTime: "6 min read",
     category: "Technology",
-    slug: "ai-privacy-protection-deep-dive"
+    slug: "ai-privacy-protection-deep-dive",
+    image: "/images/blog/ai-privacy-protection-deep-dive.jpg"
   },
   {
     id: "4",
@@ -51,7 +55,8 @@ const blogPosts: BlogPost[] = [
     date: "2024-03-12",
     readTime: "4 min read",
     category: "Guidelines",
-    slug: "best-practices-image-privacy"
+    slug: "best-practices-image-privacy",
+    image: "/images/blog/best-practices-image-privacy.jpg"
   },
   {
     id: "5",
@@ -60,7 +65,8 @@ const blogPosts: BlogPost[] = [
     date: "2024-03-10",
     readTime: "7 min read",
     category: "Industry",
-    slug: "rise-of-privacy-first-solutions"
+    slug: "rise-of-privacy-first-solutions",
+    image: "/images/blog/rise-of-privacy-first-solutions.jpg"
   }
 ]
 
@@ -95,7 +101,14 @@ export default function BlogPage() {
           <div className="grid md:grid-cols-2 gap-6">
             {featuredPosts.map(post => (
               <Card key={post.id} className="overflow-hidden hover:shadow-lg transition-all duration-300">
-                <div className="aspect-[16/9] relative bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950 dark:to-indigo-950" />
+                <div className="aspect-[16/9] relative bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-950 dark:to-indigo-950">
+                <Image
+                  src={post.image || ""}
+                  alt={post.title}
+                  fill
+                  className="object-cover"
+                />
+                </div>
                 <div className="p-6 space-y-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Tag className="h-4 w-4" />

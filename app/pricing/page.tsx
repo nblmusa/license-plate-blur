@@ -135,7 +135,7 @@ export default function PricingPage() {
     }
 
     // Current plan
-    if (subscriptionData?.plan.id === plan.id.toLowerCase()) {
+    if (subscriptionData?.plan?.id === plan.id.toLowerCase()) {
       return (
         <Button disabled className="w-full">
           Current Plan
@@ -144,7 +144,7 @@ export default function PricingPage() {
     }
 
     // Free plan can't downgrade
-    if (subscriptionData?.plan.id === 'free' && plan.id === 'free') {
+    if (subscriptionData?.plan?.id === 'free' && plan.id === 'free') {
       return (
         <Button disabled className="w-full">
           Current Plan
