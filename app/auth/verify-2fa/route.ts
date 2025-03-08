@@ -22,44 +22,6 @@ export async function POST(request: Request) {
       .eq('user_id', session.userId)
       .single();
 
-    // console.log('settings', settings);
-    // console.log('session.userId', session.userId)
-    // console.log('settingsError', settingsError)
-// return NextResponse.json({ success: true });
-
-    // If no settings exist, create default settings
-    if (settingsError && settingsError.code === 'PGRST116') {
-      const { data: newSettings, error: createError } = await supabase
-        .from('user_settings')
-        .insert([{
-          user_id: session.userId,
-          two_factor_enabled: false,
-          two_factor_secret: null,
-          settings: {},
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Failed to create user settings:', createError);
-        return NextResponse.json(
-          { error: 'Failed to initialize user settings' },
-          { status: 500 }
-        );
-      }
-
-      settings = newSettings;
-      settingsError = null;
-    } else if (settingsError) {
-      console.error('Failed to get 2FA settings:', settingsError);
-      return NextResponse.json(
-        { error: 'Failed to verify 2FA settings' },
-        { status: 500 }
-      );
-    }
-
     if (!settings?.two_factor_enabled || !settings?.two_factor_secret) {
       console.error('2FA is not properly configured:', { 
         enabled: settings?.two_factor_enabled,

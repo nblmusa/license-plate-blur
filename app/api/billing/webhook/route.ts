@@ -40,6 +40,27 @@ export async function POST(request: Request) {
 
     // Handle the event
     switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = session?.metadata?.userId;
+        const priceId = session.line_items?.data[0]?.price?.id;
+
+        if (userId) {
+          // Update user's subscription tier based on price ID
+          const tier = priceId === process.env.STRIPE_PRO_PRICE_ID ? 'pro' :
+                      priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID ? 'enterprise' : 'basic';
+
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: tier,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId);
+        }
+        break;
+      }
+
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
@@ -48,6 +69,7 @@ export async function POST(request: Request) {
         const priceId = subscription.items.data[0].price.id;
         const currentPeriodStart = new Date(subscription.current_period_start * 1000);
         const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+        const userId = subscription.metadata?.userId;
 
         // Update subscription in database
         const { error: updateError } = await supabase
@@ -69,12 +91,27 @@ export async function POST(request: Request) {
             { status: 500 }
           );
         }
+
+        // Update user's subscription tier if userId is available
+        if (userId) {
+          const tier = priceId === process.env.STRIPE_PRO_PRICE_ID ? 'pro' :
+                      priceId === process.env.STRIPE_ENTERPRISE_PRICE_ID ? 'enterprise' : 'basic';
+
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: tier,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId);
+        }
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
+        const userId = subscription.metadata?.userId;
 
         // Update subscription status to canceled
         const { error: updateError } = await supabase
@@ -91,6 +128,17 @@ export async function POST(request: Request) {
             { error: 'Failed to cancel subscription' },
             { status: 500 }
           );
+        }
+
+        // Reset user's subscription tier if userId is available
+        if (userId) {
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: 'free',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId);
         }
         break;
       }
@@ -124,6 +172,8 @@ export async function POST(request: Request) {
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
+        const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string);
+        const userId = subscription.metadata?.userId;
 
         // Update subscription status to past_due
         const { error: updateError } = await supabase
@@ -140,6 +190,17 @@ export async function POST(request: Request) {
             { error: 'Failed to update subscription status' },
             { status: 500 }
           );
+        }
+
+        // Update user's subscription tier if userId is available
+        if (userId) {
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_tier: 'free',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', userId);
         }
         break;
       }

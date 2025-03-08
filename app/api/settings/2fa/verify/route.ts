@@ -1,11 +1,10 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createRegularClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { authenticator } from 'otplib'
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = createRegularClient()
     
     // Check authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession()
@@ -22,14 +21,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Get temporary secret
+    // Get user settings with temporary secret
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
       .select('temp_2fa_secret')
       .eq('user_id', session.user.id)
       .single()
 
-    if (settingsError || !settings?.temp_2fa_secret) {
+    if (settingsError) {
+      throw settingsError
+    }
+
+    if (!settings?.temp_2fa_secret) {
       return NextResponse.json(
         { error: 'No 2FA setup in progress' },
         { status: 400 }

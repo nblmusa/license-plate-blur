@@ -1,9 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+export function createClient(useServiceRole = false) {
+  return createRouteHandlerClient(
+    { cookies },
+    {
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      supabaseKey: useServiceRole 
+        ? process.env.SUPABASE_SERVICE_ROLE_KEY 
+        : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      options: {
+        db: { schema: 'public' }
+      }
+    }
+  )
+}
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Regular client
+export function createRegularClient() {
+  return createClient(false)
+}
+
+// Service role client
+export function createServiceClient() {
+  return createClient(true)
+}
 
 export type Profile = {
   id: string
