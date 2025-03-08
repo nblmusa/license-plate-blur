@@ -1,7 +1,0 @@
-{
-  "/blog/page": "app/blog/page.js",
-  "/pricing/page": "app/pricing/page.js",
-  "/signup/page": "app/signup/page.js",
-  "/docs/page": "app/docs/page.js",
-  "/blog/[slug]/page": "app/blog/[slug]/page.js"
-}
