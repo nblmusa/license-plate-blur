@@ -23,7 +23,7 @@ export interface Detection {
 export const MASK_TYPES = ['blur', 'solid'] as const;
 export const POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'] as const;
 
-export async function detectAndMaskLicensePlates(
+export async function detectAndMask(
   imageBuffer: Buffer,
   logoBuffer?: Buffer,
   logoSettings: LogoSettings = DEFAULT_SETTINGS,

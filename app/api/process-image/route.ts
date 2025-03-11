@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import sharp, { Blend } from 'sharp'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { detectAndMaskLicensePlates } from '@/app/lib/image-processing'
+import { detectAndMask } from '@/app/lib/image-processing'
 
 export const dynamic = 'force-dynamic'
 
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
 
     // Process the image
     console.log('Starting image processing with buffer size:', buffer.length)
-    const result = await detectAndMaskLicensePlates(
+    const result = await detectAndMask(
       buffer,
       logoBuffer,
       parsedLogoSettings,
