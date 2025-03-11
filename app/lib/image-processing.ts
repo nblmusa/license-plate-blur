@@ -2,6 +2,7 @@ import * as tf from '@tensorflow/tfjs-node';
 import sharp, { Blend } from 'sharp';
 import { LogoSettings, DEFAULT_SETTINGS } from './config';
 import { detectFaces } from './face-detection';
+import { detectPlates } from './plate-detection';
 
 export interface ProcessingResult {
   processedImage: Buffer;
@@ -22,10 +23,6 @@ export interface Detection {
 export const MASK_TYPES = ['blur', 'solid'] as const;
 export const POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'] as const;
 
-async function loadModel() {
-  return await tf.loadGraphModel('file://./models/license_plate_model/model.json');
-}
-
 export async function detectAndMaskLicensePlates(
   imageBuffer: Buffer,
   logoBuffer?: Buffer,
@@ -36,70 +33,13 @@ export async function detectAndMaskLicensePlates(
     tf.engine().startScope();
 
     // Initialize result
-    let detectedPlates = 0;
-    let detectedFaces = 0;
     let processedImage = imageBuffer;
-
-    // Detect and mask faces first
-    const faces = await detectFaces(imageBuffer); console.log({faces})
-    detectedFaces = faces.length;
-
-    if (detectedFaces > 0) {
-      // Create a mask for each face
-      const faceMasks = await Promise.all(faces.map(async face => {
-        const box = face.box;
-        // Add padding around the face for better privacy
-        const padding = {
-          x: box.width * 0.1,
-          y: box.height * 0.1
-        };
-
-        // Ensure coordinates are within image bounds
-        const left = Math.max(0, Math.round(box.xMin - padding.x));
-        const top = Math.max(0, Math.round(box.yMin - padding.y));
-        const width = Math.min(
-          Math.round(box.width + padding.x * 2),
-          originalWidth - left
-        );
-        const height = Math.min(
-          Math.round(box.height + padding.y * 2),
-          originalHeight - top
-        );
-
-        // Create blurred mask
-        const mask = await sharp({
-          create: {
-            width,
-            height,
-            channels: 4,
-            background: { r: 255, g: 255, b: 255, alpha: 0.7 }
-          }
-        })
-        .blur(20)
-        .toBuffer();
-
-        return {
-          input: mask,
-          blend: 'over' as Blend,
-          left,
-          top
-        };
-      }));
-
-      // Apply face blurring
-      processedImage = await sharp(processedImage)
-        .composite(faceMasks)
-        .toBuffer();
-    }
 
     // Load and preprocess the image
     const image = await sharp(imageBuffer);
     const metadata = await image.metadata();
-    const { 
-      width: originalWidth = 640, 
-      height: originalHeight = 640, 
-      format 
-    } = metadata;
+    const originalWidth = metadata.width || 640;
+    const originalHeight = metadata.height || 640;
 
     // If logo is provided, preprocess it
     let processedLogo: Buffer | undefined;
@@ -147,84 +87,29 @@ export async function detectAndMaskLicensePlates(
     const normalized = tf.tidy(() => tensor.div(255.0).expandDims(0));
     tf.dispose(tensor);
 
-    // Load model and get predictions
-    const model = await loadModel();
-    const predictions = await model.predict(normalized) as tf.Tensor2D;
+    // Detect license plates
+    let plateDetections: Detection[] = [];
+    try {
+      plateDetections = await detectPlates(normalized as tf.Tensor4D, paddingX, paddingY, xRatio, yRatio);
+    } catch (error) {
+      console.error('License plate detection error:', error);
+    }
+
+    // Detect faces if authenticated
+    let faceDetections: Detection[] = [];
+    try {
+      faceDetections = await detectFaces(normalized as tf.Tensor4D, paddingX, paddingY, xRatio, yRatio);
+    } catch (error) {
+      console.error('Face detection error:', error);
+    }
+
     tf.dispose(normalized);
 
-    const transRes = predictions.transpose([0, 2, 1]);
-    tf.dispose(predictions);
-
-    // Process predictions to get bounding boxes
-    const boxes = tf.tidy(() => {
-      const w = transRes.slice([0, 0, 2], [-1, -1, 1]);
-      const h = transRes.slice([0, 0, 3], [-1, -1, 1]);
-      const x1 = tf.sub(transRes.slice([0, 0, 0], [-1, -1, 1]), tf.div(w, 2));
-      const y1 = tf.sub(transRes.slice([0, 0, 1], [-1, -1, 1]), tf.div(h, 2));
-      return tf.concat([y1, x1, tf.add(y1, h), tf.add(x1, w)], 2).squeeze() as tf.Tensor2D;
-    });
-
-    // Get confidence scores
-    const [scores, classes] = tf.tidy(() => {
-      const rawScores = transRes.slice([0, 0, 4], [-1, -1, 1])
-        .squeeze()
-        .reshape([-1]) as tf.Tensor1D;
-      
-      const processedScores = rawScores.sigmoid();
-      
-      const scoreThreshold = 0.1;
-      const filteredScores = tf.where(
-        tf.abs(tf.sub(processedScores, 0.5)).greater(scoreThreshold),
-        processedScores,
-        tf.zeros(processedScores.shape)
-      ) as tf.Tensor1D;
-      
-      const classes = tf.zeros([rawScores.shape[0]], 'int32');
-      
-      return [filteredScores, classes];
-    });
-
-    tf.dispose(transRes);
-
-    // Apply non-max suppression
-    const nms = await tf.image.nonMaxSuppressionAsync(
-      boxes,
-      scores,
-      500,  // maxOutputSize
-      0.3,  // iouThreshold
-      0.1   // scoreThreshold
-    );
-
-    const boxes_data = boxes.gather(nms, 0).dataSync();
-    const scores_data = scores.gather(nms, 0).dataSync();
-
-    tf.dispose([boxes, scores, classes, nms]);
-
-    // Convert TypedArrays to regular arrays
-    const boxesArray = Array.from(boxes_data);
-    const scoresArray = Array.from(scores_data);
-
-    // Create composite operations for masking
-    const compositeOperations = await Promise.all(
-      scoresArray.map(async (score, i) => {
-        if (score <= 0.1) return []; // Skip low confidence detections
-
-        let [y1, x1, y2, x2] = boxesArray.slice(i * 4, (i + 1) * 4);
-        
-        // Remove padding offset and scale coordinates back to original image size
-        x1 = Math.round((x1 - paddingX) * xRatio);
-        x2 = Math.round((x2 - paddingX) * xRatio);
-        y1 = Math.round((y1 - paddingY) * yRatio);
-        y2 = Math.round((y2 - paddingY) * yRatio);
-
-        // Ensure coordinates are within image bounds
-        x1 = Math.max(0, Math.min(x1, originalWidth));
-        x2 = Math.max(0, Math.min(x2, originalWidth));
-        y1 = Math.max(0, Math.min(y1, originalHeight));
-        y2 = Math.max(0, Math.min(y2, originalHeight));
-
-        const boxWidth = x2 - x1;
-        const boxHeight = y2 - y1;
+    // Create composite operations for masking plates
+    const plateOperations = await Promise.all(
+      plateDetections.map(async (detection) => {
+        const boxWidth = detection.x2 - detection.x1;
+        const boxHeight = detection.y2 - detection.y1;
 
         if (processedLogo) {
           try {
@@ -240,24 +125,24 @@ export async function detectAndMaskLicensePlates(
               .toBuffer();
 
             // Calculate position based on logoSettings
-            let left = x1;
-            let top = y1;
+            let left = detection.x1;
+            let top = detection.y1;
             
             switch (logoSettings.position) {
               case 'top-right':
-                left = x2 - logoWidth;
+                left = detection.x2 - logoWidth;
                 break;
               case 'bottom-left':
-                top = y2 - logoHeight;
+                top = detection.y2 - logoHeight;
                 break;
               case 'bottom-right':
-                left = x2 - logoWidth;
-                top = y2 - logoHeight;
+                left = detection.x2 - logoWidth;
+                top = detection.y2 - logoHeight;
                 break;
               case 'center':
               default:
-                left = x1 + Math.round((boxWidth - logoWidth) / 2);
-                top = y1 + Math.round((boxHeight - logoHeight) / 2);
+                left = detection.x1 + Math.round((boxWidth - logoWidth) / 2);
+                top = detection.y1 + Math.round((boxHeight - logoHeight) / 2);
                 break;
             }
 
@@ -284,34 +169,51 @@ export async function detectAndMaskLicensePlates(
             }];
           } catch (error) {
             console.error('Error applying logo:', error);
-            return await createBlurredRegion(x1, y1, boxWidth, boxHeight, imageBuffer, logoSettings);
+            return await createBlurredRegion(detection.x1, detection.y1, boxWidth, boxHeight, imageBuffer, logoSettings);
           }
         }
 
-        return await createBlurredRegion(x1, y1, boxWidth, boxHeight, imageBuffer, logoSettings);
+        return await createBlurredRegion(detection.x1, detection.y1, boxWidth, boxHeight, imageBuffer, logoSettings);
       })
     );
 
-    // Filter out empty operations
-    const validOperations = compositeOperations.flat().filter(op => op);
+    // Create face blur operations
+    const faceOperations = await Promise.all(
+      faceDetections.map(async (detection) => {
+        const boxWidth = detection.x2 - detection.x1;
+        const boxHeight = detection.y2 - detection.y1;
+        return await createBlurredRegion(
+          detection.x1,
+          detection.y1,
+          boxWidth,
+          boxHeight,
+          imageBuffer,
+          { ...logoSettings, maskType: 'blur', blur: { radius: 30, opacity: 1 } },
+          true // Enable rounded mask for faces
+        );
+      })
+    );
+
+    // Filter out empty operations and combine plate and face operations
+    const validOperations = [...plateOperations.flat(), ...faceOperations.flat()].filter(op => op);
 
     // Create final image with masks
     processedImage = await sharp(processedImage)
       .composite(validOperations)
-      .jpeg()
+      .png()
       .toBuffer();
 
     // Create thumbnail
     const thumbnail = await sharp(imageBuffer)
       .resize(320, 240, { fit: 'contain' })
-      .jpeg()
+      .png()
       .toBuffer();
 
     return {
       processedImage,
       thumbnail,
-      detectedPlates: scoresArray.filter(score => score > 0.1).length,
-      detectedFaces,
+      detectedPlates: plateDetections.length,
+      detectedFaces: faceDetections.length,
       error: undefined
     };
 
@@ -335,7 +237,8 @@ async function createBlurredRegion(
   width: number, 
   height: number,
   imageBuffer: Buffer,
-  settings: LogoSettings
+  settings: LogoSettings,
+  isRounded: boolean = false
 ) {
   if (width <= 0 || height <= 0) return [];
 
@@ -352,6 +255,22 @@ async function createBlurredRegion(
           background: { r: 0, g: 0, b: 0, alpha: Math.round(opacity * 255) }
         }
       })
+      .composite(isRounded ? [{
+        input: await sharp({
+          create: {
+            width,
+            height,
+            channels: 4,
+            background: { r: 255, g: 255, b: 255, alpha: 255 }
+          }
+        })
+        .composite([{
+          input: Buffer.from(`<svg><ellipse cx="${width/2}" cy="${height/2}" rx="${width/2}" ry="${height/2}" /></svg>`),
+          blend: 'dest-in' as Blend
+        }])
+        .toBuffer(),
+        blend: 'dest-in' as Blend
+      }] : [])
       .png()
       .toBuffer();
 
@@ -374,6 +293,10 @@ async function createBlurredRegion(
       })
       .blur(blurRadius)
       .ensureAlpha(opacity)
+      .composite(isRounded ? [{
+        input: Buffer.from(`<svg><ellipse cx="${width/2}" cy="${height/2}" rx="${width/2}" ry="${height/2}" /></svg>`),
+        blend: 'dest-in' as Blend
+      }] : [])
       .png()
       .toBuffer();
 

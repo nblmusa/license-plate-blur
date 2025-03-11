@@ -1,169 +1,90 @@
-import * as faceDetection from '@tensorflow-models/blazeface'
-import * as tf from '@tensorflow/tfjs-node'
-import sharp from 'sharp'
+import * as tf from '@tensorflow/tfjs-node';
+import { Detection } from './image-processing';
 
-// Initialize TensorFlow backend
-tf.setBackend('tensorflow')
+export async function detectFaces(
+  tensor: tf.Tensor4D,
+  paddingX: number,
+  paddingY: number,
+  xRatio: number,
+  yRatio: number
+): Promise<Detection[]> {
+  // Load face detection model
+  const model = await tf.loadGraphModel('file://./models/face_model/model.json');
+  
+  // Get predictions
+  const predictions = await model.predict(tensor) as tf.Tensor2D;
+  const transRes = predictions.transpose([0, 2, 1]);
+  tf.dispose(predictions);
 
-let detector: faceDetection.BlazeFaceModel | null = null
-let isBackendInitialized = false
+  // Process predictions to get bounding boxes
+  const boxes = tf.tidy(() => {
+    const w = transRes.slice([0, 0, 2], [-1, -1, 1]);
+    const h = transRes.slice([0, 0, 3], [-1, -1, 1]);
+    const x1 = tf.sub(transRes.slice([0, 0, 0], [-1, -1, 1]), tf.div(w, 2));
+    const y1 = tf.sub(transRes.slice([0, 0, 1], [-1, -1, 1]), tf.div(h, 2));
+    return tf.concat([y1, x1, tf.add(y1, h), tf.add(x1, w)], 2).squeeze() as tf.Tensor2D;
+  });
 
-interface FaceBox {
-  box: {
-    xMin: number;
-    yMin: number;
-    width: number;
-    height: number;
-  };
+  // Get confidence scores
+  const [scores, classes] = tf.tidy(() => {
+    const rawScores = transRes.slice([0, 0, 4], [-1, -1, 1])
+      .squeeze()
+      .reshape([-1]) as tf.Tensor1D;
+    
+    const processedScores = rawScores.sigmoid();
+    
+    const scoreThreshold = 0.1;
+    const filteredScores = tf.where(
+      tf.abs(tf.sub(processedScores, 0.5)).greater(scoreThreshold),
+      processedScores,
+      tf.zeros(processedScores.shape)
+    ) as tf.Tensor1D;
+    
+    const classes = tf.zeros([rawScores.shape[0]], 'int32');
+    
+    return [filteredScores, classes];
+  });
+
+  tf.dispose(transRes);
+
+  // Apply non-max suppression
+  const nms = await tf.image.nonMaxSuppressionAsync(
+    boxes,
+    scores,
+    100,  // maxOutputSize
+    0.3,  // iouThreshold
+    0.1   // scoreThreshold
+  );
+
+  const boxes_data = boxes.gather(nms, 0).dataSync();
+  const scores_data = scores.gather(nms, 0).dataSync();
+
+  tf.dispose([boxes, scores, classes, nms]);
+
+  // Convert detections to normalized coordinates
+  const detections: Detection[] = [];
+  const boxesArray = Array.from(boxes_data);
+  const scoresArray = Array.from(scores_data);
+
+  scoresArray.forEach((score, i) => {
+    if (score <= 0.1) return;
+
+    let [y1, x1, y2, x2] = boxesArray.slice(i * 4, (i + 1) * 4);
+    
+    // Remove padding offset and scale coordinates back to original image size
+    x1 = Math.round((x1 - paddingX) * xRatio);
+    x2 = Math.round((x2 - paddingX) * xRatio);
+    y1 = Math.round((y1 - paddingY) * yRatio);
+    y2 = Math.round((y2 - paddingY) * yRatio);
+
+    detections.push({
+      x1,
+      y1,
+      x2,
+      y2,
+      confidence: score
+    });
+  });
+
+  return detections;
 }
-
-async function ensureBackendInitialized() {
-  if (!isBackendInitialized) {
-    await tf.ready()
-    console.log('TensorFlow backend initialized:', tf.getBackend())
-    isBackendInitialized = true
-  }
-}
-
-export async function initFaceDetector() {
-  try {
-    if (!detector) {
-      await ensureBackendInitialized()
-      detector = await faceDetection.load({
-        maxFaces: 10,
-        scoreThreshold: 0.1  // Lower threshold for better detection
-      })
-      console.log('Face detector model loaded')
-    }
-    return detector
-  } catch (error) {
-    console.error('Error initializing face detector:', error)
-    throw error
-  }
-}
-
-export async function detectFaces(imageBuffer: Buffer): Promise<FaceBox[]> {
-  try {
-    // Ensure backend and model are initialized
-    await ensureBackendInitialized()
-    const faceDetector = await initFaceDetector()
-    
-    // Get original image dimensions
-    const metadata = await sharp(imageBuffer).metadata()
-    console.log('Original image metadata:', metadata)
-    
-    if (!metadata.width || !metadata.height) {
-      throw new Error('Invalid image dimensions')
-    }
-
-    const originalWidth = metadata.width
-    const originalHeight = metadata.height
-
-    // Resize to 416x416 which is better for detection
-    const preprocessedImage = await sharp(imageBuffer)
-      .resize(416, 416, { 
-        fit: 'inside',
-        withoutEnlargement: true,
-        background: { r: 255, g: 255, b: 255 }
-      })
-      .gamma(1.2) // Adjust gamma for better contrast
-      .modulate({
-        brightness: 1.1,  // Slightly increase brightness
-        saturation: 1.2   // Increase saturation
-      })
-      .removeAlpha()
-      .raw()
-      .toBuffer({ resolveWithObject: true })
-
-    console.log('Preprocessed image info:', preprocessedImage.info)
-
-    // Validate preprocessed image
-    if (preprocessedImage.data.length !== preprocessedImage.info.width * preprocessedImage.info.height * 3) {
-      throw new Error('Invalid preprocessed image data')
-    }
-
-    // Create tensor with correct shape and type
-    const tensor = tf.tidy(() => {
-      // Create tensor from raw data
-      const pixels = new Float32Array(preprocessedImage.data.length)
-      
-      // Normalize pixels to [-1, 1] range instead of [0, 1]
-      for (let i = 0; i < preprocessedImage.data.length; i++) {
-        pixels[i] = (preprocessedImage.data[i] / 127.5) - 1
-      }
-
-      const imageTensor = tf.tensor3d(
-        pixels,
-        [preprocessedImage.info.height, preprocessedImage.info.width, 3]
-      )
-
-      // Log a sample of pixel values for debugging
-      const sampleValues = imageTensor.slice([0, 0, 0], [1, 1, 3]).dataSync()
-      console.log('Sample pixel values:', Array.from(sampleValues))
-
-      return imageTensor
-    })
-
-    // Log tensor info for debugging
-    console.log('Tensor shape:', tensor.shape, 'dtype:', tensor.dtype)
-    
-    // Try detection with both tensor modes
-    let predictions = await faceDetector.estimateFaces(tensor, true)
-    if (predictions.length === 0) {
-      console.log('Retrying detection with returnTensors: false')
-      predictions = await faceDetector.estimateFaces(tensor, false)
-    }
-    
-    console.log('Raw predictions:', JSON.stringify(predictions, null, 2))
-    
-    // Calculate scaling factors
-    const scaleX = originalWidth / 416
-    const scaleY = originalHeight / 416
-
-    // Convert BlazeFace predictions to match MediaPipe format
-    const faces = predictions.map(pred => {
-      // Handle both tensor and array types
-      const topLeft = pred.topLeft instanceof tf.Tensor ? 
-        pred.topLeft.arraySync() as [number, number] : 
-        pred.topLeft as [number, number]
-      
-      const bottomRight = pred.bottomRight instanceof tf.Tensor ? 
-        pred.bottomRight.arraySync() as [number, number] : 
-        pred.bottomRight as [number, number]
-      
-      // Scale coordinates back to original image size
-      const xMin = Math.max(0, Math.round(topLeft[0] * scaleX))
-      const yMin = Math.max(0, Math.round(topLeft[1] * scaleY))
-      const width = Math.min(
-        Math.round((bottomRight[0] - topLeft[0]) * scaleX),
-        originalWidth - xMin
-      )
-      const height = Math.min(
-        Math.round((bottomRight[1] - topLeft[1]) * scaleY),
-        originalHeight - yMin
-      )
-
-      return {
-        box: {
-          xMin,
-          yMin,
-          width,
-          height
-        }
-      }
-    })
-
-    // Log detection results
-    console.log('Detected faces:', faces.length, 'with boxes:', faces.map(f => f.box))
-
-    // Cleanup
-    tf.dispose(tensor)
-    
-    return faces
-  } catch (error) {
-    console.error('Face detection error:', error)
-    return []
-  }
-}
-
-// Remove unused createImageData function as it uses browser-only APIs 
