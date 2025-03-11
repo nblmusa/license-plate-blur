@@ -6,45 +6,90 @@ import { detectAndMask } from '@/app/lib/image-processing'
 
 export const dynamic = 'force-dynamic'
 
-async function addWatermark(imageBuffer: Buffer): Promise<Buffer> {
+async function addWatermark(imageBuffer: Buffer, watermarkSettings?: any): Promise<Buffer> {
   // Get image dimensions
   const metadata = await sharp(imageBuffer).metadata()
   const { width = 800, height = 600, format } = metadata
 
-  // Create SVG watermark text
-  const watermarkText = 'Sign up to remove watermark'
+  // Default text if no settings provided
+  const text = watermarkSettings?.text || 'Sign up to remove watermark'
+  const fontSize = Math.min(width, height) * (watermarkSettings?.size || 20) / 100
+  const opacity = (watermarkSettings?.opacity || 70) / 100
+  const color = watermarkSettings?.color || '#ffffff'
+  const font = watermarkSettings?.font || 'Arial'
+  const position = watermarkSettings?.position || 'bottom-right'
+
+  // Calculate padding
+  const padding = Math.min(width, height) * 0.05 // 5% padding
+
+  // Create SVG watermark text with background for better visibility
   const svgText = `
-    <svg width="800" height="100">
+    <svg width="${width}" height="${height}">
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" result="shadow"/>
+          <feFlood flood-color="#000000" flood-opacity="0.3"/>
+          <feComposite in2="shadow" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
       <text 
-        x="50%" 
-        y="50%" 
-        font-family="Arial" 
-        font-size="48" 
-        fill="white" 
-        text-anchor="middle" 
-        dominant-baseline="middle"
-        opacity="0.5"
+        x="${getXPosition(width, padding, position)}"
+        y="${getYPosition(height, padding, position)}"
+        font-family="${font}"
+        font-size="${fontSize}px"
+        fill="${color}"
+        opacity="${opacity}"
+        text-anchor="${getTextAnchor(position)}"
+        dominant-baseline="${getBaseline(position)}"
+        filter="url(#shadow)"
+        transform="rotate(${position === 'center' ? '-30' : '0'}, ${getXPosition(width, padding, position)}, ${getYPosition(height, padding, position)})"
       >
-        ${watermarkText}
+        ${text}
       </text>
     </svg>
   `
 
-  // Create watermark from SVG
-  const watermark = await sharp(Buffer.from(svgText))
-    .png()
-    .toBuffer()
-
-  // Add watermark diagonally across the image
+  // Add watermark to image
   return await sharp(imageBuffer)
     .composite([{
-      input: watermark,
-      blend: 'over' as Blend,
-      top: Math.floor(height / 2 - 50),
-      left: Math.floor(width / 2 - 400)
+      input: Buffer.from(svgText),
+      blend: 'over' as Blend
     }])
     .toFormat(format || 'jpeg')
     .toBuffer()
+}
+
+// Helper functions for positioning
+function getXPosition(width: number, padding: number, position = 'bottom-right'): number {
+  if (position === 'center') return width / 2
+  if (position.includes('left')) return padding
+  if (position.includes('right')) return width - padding
+  return width / 2 // center fallback
+}
+
+function getYPosition(height: number, padding: number, position = 'bottom-right'): number {
+  if (position === 'center') return height / 2
+  if (position.includes('top')) return padding * 2
+  if (position.includes('bottom')) return height - padding
+  return height / 2 // center fallback
+}
+
+function getTextAnchor(position = 'bottom-right'): string {
+  if (position === 'center') return 'middle'
+  if (position.includes('left')) return 'start'
+  if (position.includes('right')) return 'end'
+  return 'middle'
+}
+
+function getBaseline(position = 'bottom-right'): string {
+  if (position === 'center') return 'middle'
+  if (position.includes('top')) return 'hanging'
+  if (position.includes('bottom')) return 'auto'
+  return 'middle'
 }
 
 async function uploadToStorage(
@@ -79,6 +124,7 @@ export async function POST(request: Request) {
     let file: File | null = null
     let logo: File | null = null
     let logoSettings: string | null = null
+    let watermarkSettings: any = null
 
     const contentType = request.headers.get('content-type')
 
@@ -100,6 +146,9 @@ export async function POST(request: Request) {
         file = formData.get('file') as File
         logo = formData.get('logo') as File | null
         logoSettings = formData.get('logoSettings') as string | null
+        watermarkSettings = formData.get('watermarkSettings') ? 
+          JSON.parse(formData.get('watermarkSettings') as string) : 
+          null
       } catch (error) {
         console.error('FormData parsing error:', error)
         return NextResponse.json({
@@ -128,6 +177,11 @@ export async function POST(request: Request) {
         // Handle processing options
         if (body.processingOptions) {
           logoSettings = JSON.stringify(body.processingOptions)
+        }
+
+        // Store watermark settings
+        if (body.watermarkSettings) {
+          watermarkSettings = body.watermarkSettings
         }
       } catch (jsonError) {
         console.error('JSON parsing error:', jsonError)
@@ -181,7 +235,8 @@ export async function POST(request: Request) {
       buffer,
       logoBuffer,
       parsedLogoSettings,
-      isAuthenticated
+      isAuthenticated,
+      watermarkSettings
     )
     console.log('Processing result:', {
       hasProcessedImage: !!result.processedImage,
@@ -192,12 +247,6 @@ export async function POST(request: Request) {
     })
 
     let processedImage = result.processedImage
-
-    // Add watermark for non-authenticated users
-    if (!isAuthenticated) {
-      console.log('Adding watermark for non-authenticated user')
-      processedImage = await addWatermark(processedImage)
-    }
 
     // Create thumbnail from the processed image
     console.log('Creating thumbnail from processed image')

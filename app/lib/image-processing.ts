@@ -20,14 +20,110 @@ export interface Detection {
   confidence: number;
 }
 
+export interface WatermarkSettings {
+  text: string;
+  position: string;
+  size: number;
+  opacity: number;
+  color: string;
+  font: string;
+}
+
 export const MASK_TYPES = ['blur', 'solid'] as const;
 export const POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'] as const;
+
+async function addWatermark(imageBuffer: Buffer, watermarkSettings?: Partial<WatermarkSettings>): Promise<Buffer> {
+  // Get image dimensions
+  const metadata = await sharp(imageBuffer).metadata()
+  const { width = 800, height = 600, format } = metadata
+
+  // Default text if no settings provided
+  const text = watermarkSettings?.text || 'Sign up to remove watermark'
+  const fontSize = Math.min(width, height) * (watermarkSettings?.size || 20) / 100
+  const opacity = (watermarkSettings?.opacity || 70) / 100
+  const color = watermarkSettings?.color || '#ffffff'
+  const font = watermarkSettings?.font || 'Arial'
+  const position = watermarkSettings?.position || 'bottom-right'
+
+  // Calculate padding
+  const padding = Math.min(width, height) * 0.05 // 5% padding
+
+  // Create SVG watermark text with background for better visibility
+  const svgText = `
+    <svg width="${width}" height="${height}">
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" result="shadow"/>
+          <feFlood flood-color="#000000" flood-opacity="0.3"/>
+          <feComposite in2="shadow" operator="in"/>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <text 
+        x="${getXPosition(width, padding, position)}"
+        y="${getYPosition(height, padding, position)}"
+        font-family="${font}"
+        font-size="${fontSize}px"
+        fill="${color}"
+        opacity="${opacity}"
+        text-anchor="${getTextAnchor(position)}"
+        dominant-baseline="${getBaseline(position)}"
+        filter="url(#shadow)"
+        transform="rotate(${position === 'center' ? '-30' : '0'}, ${getXPosition(width, padding, position)}, ${getYPosition(height, padding, position)})"
+      >
+        ${text}
+      </text>
+    </svg>
+  `
+
+  // Add watermark to image
+  return await sharp(imageBuffer)
+    .composite([{
+      input: Buffer.from(svgText),
+      blend: 'over' as Blend
+    }])
+    .toFormat(format || 'jpeg')
+    .toBuffer()
+}
+
+// Helper functions for positioning
+function getXPosition(width: number, padding: number, position = 'bottom-right'): number {
+  if (position === 'center') return width / 2
+  if (position.includes('left')) return padding
+  if (position.includes('right')) return width - padding
+  return width / 2 // center fallback
+}
+
+function getYPosition(height: number, padding: number, position = 'bottom-right'): number {
+  if (position === 'center') return height / 2
+  if (position.includes('top')) return padding * 2
+  if (position.includes('bottom')) return height - padding
+  return height / 2 // center fallback
+}
+
+function getTextAnchor(position = 'bottom-right'): string {
+  if (position === 'center') return 'middle'
+  if (position.includes('left')) return 'start'
+  if (position.includes('right')) return 'end'
+  return 'middle'
+}
+
+function getBaseline(position = 'bottom-right'): string {
+  if (position === 'center') return 'middle'
+  if (position.includes('top')) return 'hanging'
+  if (position.includes('bottom')) return 'auto'
+  return 'middle'
+}
 
 export async function detectAndMask(
   imageBuffer: Buffer,
   logoBuffer?: Buffer,
   logoSettings: LogoSettings = DEFAULT_SETTINGS,
-  isAuthenticated: boolean = false
+  isAuthenticated: boolean = false,
+  watermarkSettings?: Partial<WatermarkSettings>
 ): Promise<ProcessingResult> {
   try {
     tf.engine().startScope();
@@ -202,6 +298,12 @@ export async function detectAndMask(
       .composite(validOperations)
       .png()
       .toBuffer();
+
+    // Add watermark if not authenticated or explicitly requested
+    if (!isAuthenticated || (watermarkSettings && watermarkSettings.text)) {
+      console.log('Adding watermark to processed image');
+      processedImage = await addWatermark(processedImage, watermarkSettings);
+    }
 
     // Create thumbnail
     const thumbnail = await sharp(imageBuffer)

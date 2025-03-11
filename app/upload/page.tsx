@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings, Keyboard, History, Lock } from "lucide-react"
+import { Upload, Image as ImageIcon, ArrowLeft, Download, Loader2, Shield, X, ImagePlus, Settings, Keyboard, History, Lock, Stamp } from "lucide-react"
 import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
@@ -23,6 +23,105 @@ import {
 } from "@/components/ui/dialog"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useAnalytics } from "@/hooks/useAnalytics"
+import { LogoSettings, DEFAULT_SETTINGS, POSITIONS } from "../lib/config"
+
+type LogoPosition = 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+interface ProcessingOptions {
+  confidenceThreshold: number;
+  borderColor: string;
+  borderWidth: number;
+  maskingStyle: 'blur' | 'solid' | 'pixelate';
+  blurStrength: number;
+  solidColor: string;
+  pixelateSize: number;
+}
+
+interface WatermarkSettings {
+  text: string;
+  position: string;
+  size: number;
+  opacity: number;
+  color: string;
+  font: string;
+}
+
+interface ProcessImageParams {
+  imageData: string;
+  filename: string;
+  isAuthenticated: boolean;
+  processingOptions: ProcessingOptions;
+  logo?: string | null;
+  logoSettings?: LogoSettings;
+  useWatermark?: boolean;
+  watermarkSettings?: WatermarkSettings;
+}
+
+async function processImage({
+  imageData,
+  filename,
+  isAuthenticated,
+  processingOptions,
+  logo,
+  logoSettings,
+  useWatermark,
+  watermarkSettings
+}: ProcessImageParams) {
+  // Extract base64 and content type
+  const [header, base64Data] = imageData.split(',')
+  const contentType = header.split(';')[0].split(':')[1]
+
+  // Prepare request body
+  const requestBody: any = {
+    image: base64Data,
+    filename,
+    contentType,
+    processingOptions,
+    isAuthenticated,
+  }
+
+  // Add logo if provided
+  if (logo) {
+    const [, logoBase64Data] = logo.split(',')
+    if (logoBase64Data) {
+      requestBody.logo = logoBase64Data
+      requestBody.logoSettings = logoSettings
+    }
+  }
+
+  // Add watermark settings if needed
+  if (!isAuthenticated || useWatermark) {
+    requestBody.watermarkSettings = useWatermark ? watermarkSettings : {
+      text: 'Sign up to remove watermark',
+      position: 'bottom-right',
+      size: 20,
+      opacity: 70,
+      color: '#ffffff',
+      font: 'Arial'
+    }
+  }
+
+  // Make API request
+  const response = await fetch('/api/process-image', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error || 'Failed to process image')
+  }
+
+  const data = await response.json()
+  if (!data.maskedImage) {
+    throw new Error('No masked image returned from API')
+  }
+
+  return data
+}
 
 export default function UploadPage() {
   const [image, setImage] = useState<string | null>(null)
@@ -32,10 +131,15 @@ export default function UploadPage() {
   const [progress, setProgress] = useState(0)
   const [useLogo, setUseLogo] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [logoSettings, setLogoSettings] = useState({
+  const [logoSettings, setLogoSettings] = useState<LogoSettings>({
     position: 'center',
     size: 100,
-    opacity: 100
+    opacity: 100,
+    maskType: 'blur',
+    blur: {
+      radius: 30,
+      opacity: 1
+    }
   })
   const [batchQueue, setBatchQueue] = useState<Array<{
     id: string;
@@ -68,6 +172,16 @@ export default function UploadPage() {
     detections: number;
   }>>([])
   const analytics = useAnalytics()
+  const [watermark, setWatermark] = useState<string | null>(null)
+  const [watermarkSettings, setWatermarkSettings] = useState({
+    text: 'Watermark',
+    position: 'bottom-right',
+    size: 20,
+    opacity: 70,
+    color: '#000000',
+    font: 'Arial'
+  })
+  const [useWatermark, setUseWatermark] = useState(false)
 
   // Check authentication status
   useEffect(() => {
@@ -130,42 +244,16 @@ export default function UploadPage() {
         })
 
         // Process image
-        const [header, base64Data] = imageData.split(',')
-        const contentType = header.split(';')[0].split(':')[1]
-
-        const requestBody: any = {
-          image: base64Data,
+        const data = await processImage({
+          imageData,
           filename: item.file.name,
-          contentType: contentType,
+          isAuthenticated,
           processingOptions,
-          isAuthenticated, // Pass authentication status to backend
-        }
-
-        if (useLogo && logo) {
-          const [, logoBase64Data] = logo.split(',')
-          if (logoBase64Data) {
-            requestBody.logo = logoBase64Data
-            requestBody.logoSettings = logoSettings
-          }
-        }
-
-        const response = await fetch('/api/process-image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
+          logo: useLogo ? logo : null,
+          logoSettings: useLogo ? logoSettings : undefined,
+          useWatermark,
+          watermarkSettings
         })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Failed to process image')
-        }
-
-        const data = await response.json()
-        if (!data.maskedImage) {
-          throw new Error('No masked image returned from API')
-        }
 
         // Add to history
         setProcessingHistory(prev => [{
@@ -228,7 +316,7 @@ export default function UploadPage() {
     // Track batch processing completion
     analytics.trackProcessingComplete(batchQueue.length, Date.now() - startTime)
     setIsBatchProcessing(false)
-  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast, isAuthenticated, analytics])
+  }, [batchQueue, isBatchProcessing, logo, logoSettings, useLogo, processingOptions, toast, isAuthenticated, analytics, useWatermark, watermarkSettings])
 
   // Start processing when queue changes
   useEffect(() => {
@@ -600,13 +688,17 @@ export default function UploadPage() {
                 </Link>
               </Button>
               <div>
-                <h1 className="text-2xl font-bold">Upload Image</h1>
+                <h1 className="text-2xl font-bold tracking-tight">Upload Image</h1>
                 <p className="text-sm text-muted-foreground">
                   Upload an image to automatically detect and mask license plates
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                {isAuthenticated ? 'Pro Account' : 'Free Version'}
+              </Button>
               <HistoryDialog />
               <ShortcutsDialog />
             </div>
@@ -629,27 +721,27 @@ export default function UploadPage() {
                   </div>
                 </div>
                 <div className="p-4">
-            <div
-              {...getRootProps()}
+                  <div
+                    {...getRootProps()}
                     className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ease-in-out
                       ${isDragActive ? 'border-primary bg-primary/5 scale-[0.98] shadow-inner' : 'border-muted hover:border-primary/50 hover:bg-muted/50'}`}
                     title="Upload Files (Ctrl/Cmd + U)"
-            >
-              <input {...getInputProps()} />
+                  >
+                    <input {...getInputProps()} />
                     <div className={`transition-transform duration-300 ${isDragActive ? 'scale-105' : ''}`}>
                       <div className={`mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center
                         ${isDragActive ? 'animate-bounce' : 'animate-pulse'}`}>
                         <Upload className="h-6 w-6 text-primary" />
                       </div>
-              {isDragActive ? (
+                      {isDragActive ? (
                         <div className="space-y-2">
                           <p className="text-primary font-medium animate-pulse">Release to upload files</p>
                           <p className="text-sm text-primary/80">Your files will be processed automatically</p>
                         </div>
-              ) : (
+                      ) : (
                         <div className="space-y-2">
                           <p className="font-medium">Drag & drop an image here</p>
-                  <p className="text-sm text-muted-foreground">or click to select a file</p>
+                          <p className="text-sm text-muted-foreground">or click to select a file</p>
                           <p className="text-xs text-muted-foreground mt-4">
                             Supported formats: JPEG, PNG, WebP • Max size: 10MB
                           </p>
@@ -713,7 +805,7 @@ export default function UploadPage() {
                           <Label>Position</Label>
                           <Select
                             value={logoSettings.position}
-                            onValueChange={(value) => {
+                            onValueChange={(value: LogoPosition) => {
                               setLogoSettings(prev => ({ ...prev, position: value }))
                               processBatchQueue()
                             }}
@@ -1260,6 +1352,120 @@ export default function UploadPage() {
               </div>
             </Card>
           )}
+
+              {/* Watermark Section */}
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Stamp className="h-5 w-5" />
+                  <h2 className="text-lg font-semibold">Watermark</h2>
+                  <div className="flex-grow" />
+                  <Switch
+                    id="use-watermark"
+                    checked={useWatermark}
+                    onCheckedChange={setUseWatermark}
+                  />
+                  <Label htmlFor="use-watermark">Use Watermark</Label>
+                </div>
+
+                {useWatermark && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Watermark Text</Label>
+                      <Input
+                        value={watermarkSettings.text}
+                        onChange={(e) => setWatermarkSettings(prev => ({ ...prev, text: e.target.value }))}
+                        placeholder="Enter watermark text"
+                        maxLength={50}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Position</Label>
+                      <Select
+                        value={watermarkSettings.position}
+                        onValueChange={(value) => setWatermarkSettings(prev => ({ ...prev, position: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {POSITIONS.map((position: string) => (
+                            <SelectItem key={position} value={position}>
+                              {position.split('-').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Font</Label>
+                      <Select
+                        value={watermarkSettings.font}
+                        onValueChange={(value) => setWatermarkSettings(prev => ({ ...prev, font: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select font" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Arial">Arial</SelectItem>
+                          <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                          <SelectItem value="Helvetica">Helvetica</SelectItem>
+                          <SelectItem value="Georgia">Georgia</SelectItem>
+                          <SelectItem value="Courier">Courier</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="color"
+                          value={watermarkSettings.color}
+                          onChange={(e) => setWatermarkSettings(prev => ({ ...prev, color: e.target.value }))}
+                          className="w-20 p-1 h-8"
+                        />
+                        <Input
+                          type="text"
+                          value={watermarkSettings.color}
+                          onChange={(e) => setWatermarkSettings(prev => ({ ...prev, color: e.target.value }))}
+                          className="flex-1"
+                          placeholder="#000000"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label>Size (%)</Label>
+                        <span className="text-sm text-gray-500">{watermarkSettings.size}%</span>
+                      </div>
+                      <Slider
+                        value={[watermarkSettings.size]}
+                        min={5}
+                        max={100}
+                        step={1}
+                        onValueChange={(value) => setWatermarkSettings(prev => ({ ...prev, size: value[0] }))}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label>Opacity (%)</Label>
+                        <span className="text-sm text-gray-500">{watermarkSettings.opacity}%</span>
+                      </div>
+                      <Slider
+                        value={[watermarkSettings.opacity]}
+                        min={10}
+                        max={100}
+                        step={1}
+                        onValueChange={(value) => setWatermarkSettings(prev => ({ ...prev, opacity: value[0] }))}
+                      />
+                    </div>
+                  </div>
+                )}
+              </Card>
             </div>
           </div>
         </div>
