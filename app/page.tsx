@@ -40,16 +40,16 @@ export default function Home() {
                 <p className="text-xs sm:text-sm font-medium text-blue-700/90 dark:text-blue-300/90 flex items-center gap-2">
                   <Car className="h-3 w-3 sm:h-4 sm:w-4 animate-bounce-subtle" />
                   <span className="relative">
-                    Advanced License Plate Protection
+                    Advanced Privacy Protection
                     <Sparkles className="absolute -right-4 sm:-right-6 -top-2 sm:-top-4 h-3 w-3 sm:h-4 sm:w-4 text-yellow-400/80 animate-pulse" />
                   </span>
                 </p>
               </div>
               <h1 className="text-3xl pb-2 sm:text-4xl md:text-5xl lg:text-6xl/none font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-700/80 via-blue-800/80 to-indigo-800/80 dark:from-blue-400/80 dark:via-blue-300/80 dark:to-blue-200/80 animate-fade-in-up [text-shadow:0_4px_8px_rgba(59,130,246,0.05)]">
-                Privacy Protection for Your Vehicle Images
+                Complete Privacy Protection for Your Images
               </h1>
               <p className="mx-auto max-w-[700px] text-base sm:text-lg md:text-xl text-gray-600/90 dark:text-gray-300/90 animate-fade-in-up delay-100 px-4">
-                Instantly mask license plates in your photos with our advanced AI technology. Perfect for automotive businesses, real estate listings, and social media content.
+                Instantly mask license plates and faces in your photos with our advanced AI technology. Perfect for automotive businesses, real estate listings, and social media content.
               </p>
             </div>
 
@@ -132,7 +132,7 @@ export default function Home() {
                   <h3 className="text-base sm:text-lg font-semibold text-blue-700 dark:text-blue-300">Smart Detection</h3>
                 </div>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 pl-9">
-                  Advanced algorithms detect license plates in any orientation or lighting condition.
+                  Advanced algorithms detect and mask both license plates and faces in any orientation or lighting condition.
                 </p>
               </div>
               <div className="space-y-2">

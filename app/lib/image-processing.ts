@@ -1,11 +1,13 @@
 import * as tf from '@tensorflow/tfjs-node';
 import sharp, { Blend } from 'sharp';
 import { LogoSettings, DEFAULT_SETTINGS } from './config';
+import { detectFaces } from './face-detection';
 
 export interface ProcessingResult {
   processedImage: Buffer;
   thumbnail: Buffer;
   detectedPlates: number;
+  detectedFaces: number;
   error?: Error;
 }
 
@@ -32,6 +34,63 @@ export async function detectAndMaskLicensePlates(
 ): Promise<ProcessingResult> {
   try {
     tf.engine().startScope();
+
+    // Initialize result
+    let detectedPlates = 0;
+    let detectedFaces = 0;
+    let processedImage = imageBuffer;
+
+    // Detect and mask faces first
+    const faces = await detectFaces(imageBuffer); console.log({faces})
+    detectedFaces = faces.length;
+
+    if (detectedFaces > 0) {
+      // Create a mask for each face
+      const faceMasks = await Promise.all(faces.map(async face => {
+        const box = face.box;
+        // Add padding around the face for better privacy
+        const padding = {
+          x: box.width * 0.1,
+          y: box.height * 0.1
+        };
+
+        // Ensure coordinates are within image bounds
+        const left = Math.max(0, Math.round(box.xMin - padding.x));
+        const top = Math.max(0, Math.round(box.yMin - padding.y));
+        const width = Math.min(
+          Math.round(box.width + padding.x * 2),
+          originalWidth - left
+        );
+        const height = Math.min(
+          Math.round(box.height + padding.y * 2),
+          originalHeight - top
+        );
+
+        // Create blurred mask
+        const mask = await sharp({
+          create: {
+            width,
+            height,
+            channels: 4,
+            background: { r: 255, g: 255, b: 255, alpha: 0.7 }
+          }
+        })
+        .blur(20)
+        .toBuffer();
+
+        return {
+          input: mask,
+          blend: 'over' as Blend,
+          left,
+          top
+        };
+      }));
+
+      // Apply face blurring
+      processedImage = await sharp(processedImage)
+        .composite(faceMasks)
+        .toBuffer();
+    }
 
     // Load and preprocess the image
     const image = await sharp(imageBuffer);
@@ -237,9 +296,9 @@ export async function detectAndMaskLicensePlates(
     const validOperations = compositeOperations.flat().filter(op => op);
 
     // Create final image with masks
-    const processedImage = await sharp(imageBuffer)
+    processedImage = await sharp(processedImage)
       .composite(validOperations)
-      .toFormat(format || 'jpeg')
+      .jpeg()
       .toBuffer();
 
     // Create thumbnail
@@ -252,6 +311,7 @@ export async function detectAndMaskLicensePlates(
       processedImage,
       thumbnail,
       detectedPlates: scoresArray.filter(score => score > 0.1).length,
+      detectedFaces,
       error: undefined
     };
 
@@ -261,6 +321,7 @@ export async function detectAndMaskLicensePlates(
       processedImage: imageBuffer,
       thumbnail: imageBuffer,
       detectedPlates: 0,
+      detectedFaces: 0,
       error: error as Error
     };
   } finally {
@@ -326,4 +387,28 @@ async function createBlurredRegion(
     console.error('Error creating masked region:', error);
     return [];
   }
+}
+
+async function applyLogo(
+  imageBuffer: Buffer,
+  logoBuffer: Buffer,
+  settings: any
+): Promise<Buffer> {
+  const { width, height } = await sharp(imageBuffer).metadata();
+  const logoSize = Math.min(width!, height!) / 4;
+
+  const resizedLogo = await sharp(logoBuffer)
+    .resize(Math.round(logoSize), Math.round(logoSize), {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 }
+    })
+    .toBuffer();
+
+  return await sharp(imageBuffer)
+    .composite([{
+      input: resizedLogo,
+      gravity: 'southeast',
+      blend: 'over'
+    }])
+    .toBuffer();
 } 
