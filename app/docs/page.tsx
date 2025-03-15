@@ -1,7 +1,6 @@
 'use client'
 import { Card } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Code, Book, Key, Terminal, AlertTriangle, Cpu, Image, Zap, CheckCircle2, Gauge, Shield, Lock, Wrench, FileCode, Laptop, GitBranch, Search, ChevronRight } from "lucide-react"
+import { Code, Book, Key, Terminal, AlertTriangle, Cpu, Image, Zap, Gauge, Shield, Wrench, FileCode, Laptop, GitBranch, Search, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"

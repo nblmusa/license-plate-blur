@@ -36,11 +36,11 @@ async function addWatermark(imageBuffer: Buffer, watermarkSettings?: Partial<Wat
   // Get image dimensions
   const metadata = await sharp(imageBuffer).metadata()
   const { width = 800, height = 600, format } = metadata
-
+  
   // Default text if no settings provided
-  const text = watermarkSettings?.text || 'Sign up to remove watermark'
+  const text = watermarkSettings?.text || 'MaskingTech.com'
   const fontSize = Math.min(width, height) * (watermarkSettings?.size || 20) / 100
-  const opacity = (watermarkSettings?.opacity || 70) / 100
+  const opacity = watermarkSettings?.opacity || 0.7
   const color = watermarkSettings?.color || '#ffffff'
   const font = watermarkSettings?.font || 'Arial'
   const position = watermarkSettings?.position || 'bottom-right'
@@ -122,7 +122,6 @@ export async function detectAndMask(
   imageBuffer: Buffer,
   logoBuffer?: Buffer,
   logoSettings: LogoSettings = DEFAULT_SETTINGS,
-  isAuthenticated: boolean = false,
   watermarkSettings?: Partial<WatermarkSettings>
 ): Promise<ProcessingResult> {
   try {
@@ -217,7 +216,6 @@ export async function detectAndMask(
                 fit: 'contain',
                 background: { r: 0, g: 0, b: 0, alpha: 0 }
               })
-              .png()
               .toBuffer();
 
             // Calculate position based on logoSettings
@@ -255,7 +253,6 @@ export async function detectAndMask(
               input: resizedLogo,
               blend: 'over' as Blend
             }])
-            .png()
             .toBuffer();
 
             return [{
@@ -296,11 +293,9 @@ export async function detectAndMask(
     // Create final image with masks
     processedImage = await sharp(processedImage)
       .composite(validOperations)
-      .png()
       .toBuffer();
-
-    // Add watermark if not authenticated or explicitly requested
-    if (!isAuthenticated || (watermarkSettings && watermarkSettings.text)) {
+      
+    if (watermarkSettings?.text) {
       console.log('Adding watermark to processed image');
       processedImage = await addWatermark(processedImage, watermarkSettings);
     }
@@ -308,7 +303,6 @@ export async function detectAndMask(
     // Create thumbnail
     const thumbnail = await sharp(imageBuffer)
       .resize(320, 240, { fit: 'contain' })
-      .png()
       .toBuffer();
 
     return {
@@ -345,8 +339,8 @@ async function createBlurredRegion(
   if (width <= 0 || height <= 0) return [];
 
   try {
-    const maskType = settings.maskType || 'blur';
-    const opacity = settings.blur?.opacity ?? 1;
+    const maskType = settings?.maskType || 'blur';
+    const opacity = settings?.blur?.opacity ?? 1;
 
     if (maskType === 'solid') {
       const solidMask = await sharp({
@@ -373,7 +367,6 @@ async function createBlurredRegion(
         .toBuffer(),
         blend: 'dest-in' as Blend
       }] : [])
-      .png()
       .toBuffer();
 
       return [{
@@ -385,7 +378,7 @@ async function createBlurredRegion(
     }
 
     // Default blur mask
-    const blurRadius = settings.blur?.radius ?? 30;
+    const blurRadius = settings?.blur?.radius ?? 30;
     const extractedRegion = await sharp(imageBuffer)
       .extract({
         left: x1,
@@ -399,7 +392,6 @@ async function createBlurredRegion(
         input: Buffer.from(`<svg><ellipse cx="${width/2}" cy="${height/2}" rx="${width/2}" ry="${height/2}" /></svg>`),
         blend: 'dest-in' as Blend
       }] : [])
-      .png()
       .toBuffer();
 
     return [{
